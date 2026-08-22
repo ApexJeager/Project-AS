@@ -1,0 +1,6 @@
+{
+  "name": "Children's Ministry App",
+  "description": "Role-based application for managing children's ministry groups, attendance, and reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

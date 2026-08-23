@@ -1,112 +1,219 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppContext } from '../../AppContext';
-import { getColorGroupClasses } from '../../utils';
-import { Users, UserCheck, UserX, BarChart3 } from 'lucide-react';
+import { getColorGroupClasses, getColorGroupDot, getColorGroupLabel, getRankBadgeClasses, getRankDisplay, getStatusLabel } from '../../utils';
+import { getNextRankInfo } from '../../constants/ranks';
+import { Child } from '../../types';
+import LeaderboardView from './LeaderboardView';
+import PromotionModal from '../PromotionModal';
+import { 
+  Users, 
+  UserCheck, 
+  Sparkles, 
+  BarChart3, 
+  Trophy, 
+  BookOpen, 
+  Award, 
+  Rocket, 
+  CheckCircle2, 
+  FileText 
+} from 'lucide-react';
 
 export default function AdminView() {
-  const { activeTab, children, attendances, reports } = useAppContext();
+  const { activeTab, children, attendances, reports, updateReportStatus } = useAppContext();
+  const [selectedChildForPromotion, setSelectedChildForPromotion] = useState<Child | null>(null);
 
-  if (activeTab === 'Overview') {
+  if (activeTab === 'Leaderboard' || activeTab === 'Ranks' || activeTab === 'Classement' || activeTab === 'Rangs') {
+    return <LeaderboardView />;
+  }
+
+  if (activeTab === 'Overview' || activeTab === "Vue d'Ensemble") {
     const totalKids = children.length;
-    const activeKids = children.filter(c => c.status === 'Active').length;
-    const today = new Date().toISOString().split('T')[0];
-    const todayPresent = attendances.filter(a => a.date === today && a.status === 'Present').length;
-    const todayAbsent = attendances.filter(a => a.date === today && a.status === 'Absent').length;
+    const qualifiedKids = children.filter(c => c.status === 'Qualified Astronaute').length;
+    const recruitsCount = children.filter(c => c.status === 'Recruit').length;
+    const totalPoints = children.reduce((sum, c) => sum + c.total_accumulated_points, 0);
+    const readyPromotions = children.filter(c => getNextRankInfo(c).isEligible);
 
-    const groupStats = ['Red', 'Blue', 'Green', 'Yellow'].map(color => {
+    const groupStats = ['Red', 'Green', 'Yellow', 'Blue'].map(color => {
+      const groupKids = children.filter(c => c.color_group === color);
+      const groupPts = groupKids.reduce((s, k) => s + k.total_accumulated_points, 0);
       return {
         color,
-        count: children.filter(c => c.color_group === color).length,
+        count: groupKids.length,
+        points: groupPts,
       };
     });
 
     return (
-      <div className="p-8 max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Global Overview</h2>
-          <p className="text-gray-500 mt-1">High-level metrics across all color groups.</p>
+      <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in duration-200">
+        {/* Header */}
+        <div className="bg-zinc-950 text-zinc-100 p-5 sm:p-6 rounded-xl border border-zinc-850 shadow-2xs">
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">
+            <Trophy size={13} className="text-amber-400" />
+            <span>Portail d'Administration du Ministère</span>
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">Supervision Globale des Astronautes</h2>
+          <p className="text-xs text-zinc-400 mt-0.5">Supervision générale sur les 4 groupes de couleur, indicateurs d'assiduité et validation des rapports mensuels.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-            <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 mb-4">
-              <Users size={24} />
+        {/* Metric Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <div className="bg-white p-4 rounded-xl border border-zinc-200/90 shadow-2xs">
+            <div className="w-8 h-8 bg-zinc-100 rounded-lg flex items-center justify-center text-zinc-700 mb-3 border border-zinc-200/60">
+              <Users size={16} />
             </div>
-            <p className="text-sm font-medium text-gray-500">Total Enrolled</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">{totalKids}</p>
+            <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Total des Inscrits</p>
+            <p className="text-2xl font-mono font-bold text-zinc-900 mt-0.5">{totalKids}</p>
+            <p className="text-[11px] text-zinc-500 mt-0.5">{recruitsCount} recrues en formation</p>
           </div>
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-            <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 mb-4">
-              <UserCheck size={24} />
+
+          <div className="bg-white p-4 rounded-xl border border-zinc-200/90 shadow-2xs">
+            <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-700 mb-3 border border-emerald-200/60">
+              <UserCheck size={16} />
             </div>
-            <p className="text-sm font-medium text-gray-500">Active Status</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">{activeKids}</p>
+            <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Astronautes Qualifiés</p>
+            <p className="text-2xl font-mono font-bold text-zinc-900 mt-0.5">{qualifiedKids}</p>
+            <p className="text-[11px] text-emerald-700 mt-0.5 font-medium">{Math.round((qualifiedKids / (totalKids || 1)) * 100)}% de taux de qualification</p>
           </div>
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-            <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 mb-4">
-              <BarChart3 size={24} />
+
+          <div className="bg-white p-4 rounded-xl border border-zinc-200/90 shadow-2xs">
+            <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center text-amber-700 mb-3 border border-amber-200/60">
+              <Sparkles size={16} />
             </div>
-            <p className="text-sm font-medium text-gray-500">Present Today</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">{todayPresent}</p>
+            <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Prêts pour Promotion</p>
+            <p className="text-2xl font-mono font-bold text-amber-600 mt-0.5">{readyPromotions.length}</p>
+            <p className="text-[11px] text-amber-800 mt-0.5 font-medium">Examen de verset en attente</p>
           </div>
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-            <div className="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center text-red-600 mb-4">
-              <UserX size={24} />
+
+          <div className="bg-white p-4 rounded-xl border border-zinc-200/90 shadow-2xs">
+            <div className="w-8 h-8 bg-zinc-100 rounded-lg flex items-center justify-center text-zinc-700 mb-3 border border-zinc-200/60">
+              <BarChart3 size={16} />
             </div>
-            <p className="text-sm font-medium text-gray-500">Absent Today</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">{todayAbsent}</p>
+            <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Points Attribués</p>
+            <p className="text-2xl font-mono font-bold text-zinc-900 mt-0.5">{totalPoints.toLocaleString()}</p>
+            <p className="text-[11px] text-zinc-500 mt-0.5">Sur 8 critères officiels</p>
           </div>
         </div>
 
-        <div>
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Group Distribution</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Group Distribution & Points */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Aperçu des Groupes de Couleur</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {groupStats.map(stat => (
-              <div key={stat.color} className={`p-5 rounded-2xl border ${getColorGroupClasses(stat.color as any)} bg-opacity-50`}>
-                <p className="text-sm font-semibold opacity-80 uppercase tracking-wide">{stat.color} Group</p>
-                <p className="text-3xl font-bold mt-2">{stat.count} <span className="text-lg font-medium opacity-70">kids</span></p>
+              <div key={stat.color} className={`p-4 rounded-xl border ${getColorGroupClasses(stat.color as any)} shadow-2xs`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${getColorGroupDot(stat.color as any)}`} />
+                    <p className="text-xs font-semibold">Groupe {getColorGroupLabel(stat.color)}</p>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-white/70">
+                    {stat.points} pts
+                  </span>
+                </div>
+                <p className="text-2xl font-mono font-bold mt-2">{stat.count} <span className="text-xs font-sans font-normal opacity-70">candidats</span></p>
               </div>
             ))}
           </div>
         </div>
+
+        {/* Pending Promotions list */}
+        {readyPromotions.length > 0 && (
+          <div className="bg-white rounded-xl p-5 border border-amber-200/90 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="text-amber-600" size={16} />
+                <h3 className="font-bold text-zinc-900 text-xs sm:text-sm">Candidats Prêts pour l'Examen de Récitation Biblique</h3>
+              </div>
+              <span className="text-[10px] font-semibold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-md">
+                {readyPromotions.length} Éligible(s)
+              </span>
+            </div>
+
+            <div className="divide-y divide-zinc-100">
+              {readyPromotions.map(child => {
+                const { nextRank } = getNextRankInfo(child);
+                return (
+                  <div key={child.id} className="py-2.5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-md bg-zinc-900 text-white text-[11px] font-bold flex items-center justify-center">
+                        {child.first_name[0]}{child.last_name[0]}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-xs text-zinc-900">{child.first_name} {child.last_name}</span>
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded font-medium border ${getColorGroupClasses(child.color_group)}`}>
+                            Groupe {getColorGroupLabel(child.color_group)}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-zinc-500">
+                          {getRankDisplay(child.current_rank)} → <strong className="text-zinc-800">{nextRank?.title}</strong> ({nextRank?.verse})
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedChildForPromotion(child)}
+                      className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold shadow-2xs transition-all cursor-pointer"
+                    >
+                      Examen
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <PromotionModal
+          child={selectedChildForPromotion}
+          isOpen={Boolean(selectedChildForPromotion)}
+          onClose={() => setSelectedChildForPromotion(null)}
+        />
       </div>
     );
   }
 
-  if (activeTab === 'Reports') {
+  if (activeTab === 'Reports' || activeTab === 'Rapports Mensuels') {
     return (
-      <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-4 animate-in fade-in duration-200">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Group Reports</h2>
-          <p className="text-gray-500 mt-1">Review monthly submissions from group Pilotes.</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-zinc-900">Rapports Mensuels de Groupe</h2>
+          <p className="text-xs text-zinc-500 mt-0.5">Consultez et validez les récapitulatifs mensuels soumis par les Pilotes de Groupe.</p>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {reports.map(report => (
-            <div key={report.id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${getColorGroupClasses(report.color_group)}`}>
-                    {report.color_group}
+            <div key={report.id} className="bg-white p-4 sm:p-5 rounded-xl border border-zinc-200/90 shadow-2xs space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-semibold border ${getColorGroupClasses(report.color_group)}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${getColorGroupDot(report.color_group)}`} />
+                    Groupe {getColorGroupLabel(report.color_group)}
                   </span>
-                  <span className="text-gray-500 font-medium">{report.month_year}</span>
+                  <span className="text-zinc-500 font-mono text-xs">{report.month_year}</span>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                  report.status === 'Submitted' ? 'bg-amber-100 text-amber-800' :
-                  report.status === 'Reviewed' ? 'bg-green-100 text-green-800' :
-                  'bg-gray-100 text-gray-600'
+                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                  report.status === 'Submitted' ? 'bg-amber-50 text-amber-800 border border-amber-200' :
+                  report.status === 'Reviewed' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' :
+                  'bg-zinc-100 text-zinc-600 border border-zinc-200'
                 }`}>
-                  {report.status}
+                  {getStatusLabel(report.status)}
                 </span>
               </div>
-              <p className="text-gray-700 whitespace-pre-wrap">{report.content}</p>
-              {report.status === 'Submitted' && (
-                <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end">
-                  <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                    Mark as Reviewed
+              <p className="text-zinc-700 text-xs leading-relaxed whitespace-pre-wrap">{report.content}</p>
+              
+              <div className="pt-2 border-t border-zinc-100 flex justify-end gap-2">
+                {report.status === 'Submitted' && (
+                  <button 
+                    type="button"
+                    onClick={() => updateReportStatus(report.id, 'Reviewed')}
+                    className="flex items-center gap-1.5 bg-zinc-900 hover:bg-zinc-800 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-2xs"
+                  >
+                    <CheckCircle2 size={14} />
+                    Valider le Rapport
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -114,51 +221,80 @@ export default function AdminView() {
     );
   }
 
-  if (activeTab === 'Roster') {
+  if (activeTab === 'Roster' || activeTab === 'Tous les Enfants') {
     return (
-      <div className="p-8 max-w-6xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">All Children Roster</h2>
-            <p className="text-gray-500 mt-1">Global directory of all enrolled children.</p>
-          </div>
+      <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-4 animate-in fade-in duration-200">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-zinc-900">Répertoire Général de Tous les Enfants</h2>
+          <p className="text-xs text-zinc-500 mt-0.5">Annuaire complet des membres répartis dans les 4 groupes de couleur.</p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
+        <div className="bg-white rounded-xl shadow-2xs border border-zinc-200/90 overflow-hidden">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-zinc-50 border-b border-zinc-200/80 text-zinc-500 font-semibold uppercase tracking-wider text-[10px]">
               <tr>
-                <th className="px-6 py-4 font-medium">First Name</th>
-                <th className="px-6 py-4 font-medium">Last Name</th>
-                <th className="px-6 py-4 font-medium">Group</th>
-                <th className="px-6 py-4 font-medium">Status</th>
+                <th className="px-4 py-3">Nom & Prénom</th>
+                <th className="px-4 py-3">Groupe</th>
+                <th className="px-4 py-3">Rang</th>
+                <th className="px-4 py-3">Total Points</th>
+                <th className="px-4 py-3">Statut</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {children.map(child => (
-                <tr key={child.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 font-medium text-gray-900">{child.first_name}</td>
-                  <td className="px-6 py-4 text-gray-600">{child.last_name}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getColorGroupClasses(child.color_group)}`}>
-                      {child.color_group}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                      child.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {child.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+            <tbody className="divide-y divide-zinc-200/70">
+              {children.map(child => {
+                const { isEligible, nextRank } = getNextRankInfo(child);
+                return (
+                  <tr key={child.id} className="hover:bg-zinc-50/60 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-zinc-900">{child.first_name} {child.last_name}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border ${getColorGroupClasses(child.color_group)}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${getColorGroupDot(child.color_group)}`} />
+                        Groupe {getColorGroupLabel(child.color_group)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${getRankBadgeClasses(child.current_rank)}`}>
+                        {getRankDisplay(child.current_rank)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-mono font-semibold text-zinc-900">{child.total_accumulated_points} pts</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-1.5 py-0.2 rounded text-[10px] font-medium ${
+                        child.status === 'Qualified Astronaute' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-zinc-100 text-zinc-700 border border-zinc-200/60'
+                      }`}>
+                        {getStatusLabel(child.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {isEligible ? (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedChildForPromotion(child)}
+                          className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-[11px] font-semibold shadow-2xs cursor-pointer"
+                        >
+                          Promouvoir ({nextRank?.title})
+                        </button>
+                      ) : (
+                        <span className="text-zinc-400 text-[11px]">En progression</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+
+        <PromotionModal
+          child={selectedChildForPromotion}
+          isOpen={Boolean(selectedChildForPromotion)}
+          onClose={() => setSelectedChildForPromotion(null)}
+        />
       </div>
     );
   }
 
   return null;
 }
+

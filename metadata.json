@@ -1,6 +1,6 @@
 {
   "name": "Children's Ministry App",
-  "description": "Role-based application for managing children's ministry groups, attendance, and reports.",
+  "description": "Application de gestion du ministère des enfants Astronautes avec notation quotidienne 250 pts, 18 rangs, sécurité par codes PIN gérés par Développeur, interface optimisée smartphone et Assistant IA Gemini.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

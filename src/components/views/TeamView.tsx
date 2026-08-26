@@ -554,7 +554,7 @@ export default function TeamView() {
   // 2. Daily Grading & Attendance View
   if (activeTab === 'Daily Grading' || activeTab === 'Attendance' || activeTab === 'Évaluation Quotidienne' || activeTab === 'Présences') {
     return (
-      <div className="p-3 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-4 sm:space-y-5 pb-28 md:pb-20 animate-in fade-in duration-200">
+      <div className="p-3 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-4 sm:space-y-5 pb-32 md:pb-20 animate-in fade-in duration-200">
         {renderSegmentedTabs()}
 
         {/* Header Toolbar */}
@@ -603,6 +603,13 @@ export default function TeamView() {
             </div>
 
             {/* Quick Presets */}
+            <button
+              type="button"
+              onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+              className="min-h-11 px-3 py-2 rounded-xl text-xs font-semibold bg-white hover:bg-zinc-50 text-zinc-700 border border-zinc-200 transition-colors cursor-pointer active:scale-95 shadow-2xs"
+            >
+              Aujourd’hui
+            </button>
             <button
               type="button"
               onClick={handleMarkAllPresent}

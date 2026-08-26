@@ -53,7 +53,7 @@ export default function MobileNavBar() {
         id="mobile-bottom-nav" 
         className="fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800/90 text-zinc-400 md:hidden pb-safe shadow-lg"
       >
-        <div className="grid grid-cols-5 h-15 items-center px-1">
+        <div className="grid grid-cols-5 min-h-16 items-center px-1 pb-0.5">
           {/* Main 3 Tabs */}
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -62,6 +62,7 @@ export default function MobileNavBar() {
               <button
                 key={item.id}
                 type="button"
+                aria-current={isActive ? 'page' : undefined}
                 onClick={() => {
                   setActiveTab(item.id);
                   if (isAiAssistantOpen) setIsAiAssistantOpen(false);
@@ -87,7 +88,8 @@ export default function MobileNavBar() {
           <button
             type="button"
             onClick={() => setIsAiAssistantOpen(!isAiAssistantOpen)}
-            className={`flex flex-col items-center justify-center h-full py-1 px-0.5 relative transition-colors cursor-pointer ${
+            aria-label="Ouvrir l’assistant IA"
+            className={`flex min-h-14 flex-col items-center justify-center h-full py-1 px-0.5 relative transition-colors cursor-pointer ${
               isAiAssistantOpen ? 'text-amber-400' : 'text-zinc-400 hover:text-amber-300'
             }`}
           >
@@ -107,7 +109,8 @@ export default function MobileNavBar() {
           <button
             type="button"
             onClick={() => setIsDrawerOpen(true)}
-            className={`flex flex-col items-center justify-center h-full py-1 px-0.5 relative transition-colors cursor-pointer ${
+            aria-label="Ouvrir le menu"
+            className={`flex min-h-14 flex-col items-center justify-center h-full py-1 px-0.5 relative transition-colors cursor-pointer ${
               isDrawerOpen ? 'text-zinc-50' : 'text-zinc-400 hover:text-zinc-200'
             }`}
           >

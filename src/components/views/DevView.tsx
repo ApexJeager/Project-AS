@@ -21,7 +21,8 @@ import {
   Unlock, 
   Shuffle, 
   AlertTriangle,
-  FileCheck
+  FileCheck,
+  Trash2
 } from 'lucide-react';
 
 export default function DevView() {
@@ -34,6 +35,7 @@ export default function DevView() {
     children, 
     resetDatabase, 
     addUser,
+    deleteUser,
     updateUserPin,
     generateRandomPin,
     geminiApiKey,
@@ -80,6 +82,9 @@ export default function DevView() {
   const [editPinInput, setEditPinInput] = useState('');
   const [revealedPins, setRevealedPins] = useState<{ [userId: string]: boolean }>({});
   const [showAllPins, setShowAllPins] = useState(false);
+
+  // User Deletion State
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   const togglePinVisibility = (userId: string) => {
     setRevealedPins(prev => ({ ...prev, [userId]: !prev[userId] }));
@@ -303,6 +308,89 @@ export default function DevView() {
     );
   };
 
+  // Delete User Confirmation Modal
+  const renderDeleteUserModal = () => {
+    if (!userToDelete || !isDev) return null;
+
+    const isCurrentActiveUser = userToDelete.id === currentUser.id;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <div className="bg-white rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-zinc-200/90 animate-in slide-in-from-bottom duration-200">
+          <div className="w-12 h-1 bg-zinc-300 rounded-full mx-auto mb-3 sm:hidden" />
+          
+          <div className="flex items-center gap-3 pb-3 border-b border-zinc-100">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center font-bold shrink-0">
+              <Trash2 size={20} />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-zinc-900">Supprimer l'Utilisateur</h3>
+              <p className="text-[11px] text-zinc-500">Cette action retirera définitivement ce compte de la base.</p>
+            </div>
+          </div>
+
+          <div className="py-4 space-y-3">
+            <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200/70 space-y-1.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-500">Nom :</span>
+                <strong className="text-zinc-900">{userToDelete.name}</strong>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-500">Rôle RBAC :</span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${getRoleClasses(userToDelete.role)}`}>
+                  {getRoleLabel(userToDelete.role)}
+                </span>
+              </div>
+              {userToDelete.color_group && (
+                <div className="flex items-center justify-between">
+                  <span className="text-zinc-500">Groupe :</span>
+                  <span className="text-zinc-800 font-medium">Groupe {getColorGroupLabel(userToDelete.color_group)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-500">Identifiant :</span>
+                <span className="font-mono text-[10px] text-zinc-400">{userToDelete.id}</span>
+              </div>
+            </div>
+
+            {isCurrentActiveUser ? (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2">
+                <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                <span>Vous êtes actuellement connecté avec ce compte. Pour le supprimer, veuillez d'abord basculer sur un autre compte Développeur.</span>
+              </div>
+            ) : (
+              <p className="text-xs text-rose-700 bg-rose-50 p-2.5 rounded-xl border border-rose-200/70">
+                Cet utilisateur ne pourra plus accéder à l'application ni s'authentifier par code PIN ({userToDelete.pinCode || userToDelete.pin || '----'}).
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
+            <button
+              type="button"
+              onClick={() => setUserToDelete(null)}
+              className="px-4 py-2.5 rounded-xl text-xs font-medium text-zinc-600 hover:bg-zinc-100 cursor-pointer"
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              disabled={isCurrentActiveUser}
+              onClick={async () => {
+                const id = userToDelete.id;
+                setUserToDelete(null);
+                await deleteUser(id);
+              }}
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-2xs transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Confirmer la Suppression
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // 1. PIN Management Panel (Dedicated Dev Security View)
   if (activeTab === 'PINs' || activeTab === 'Gestion des PINs' || activeTab === 'Sécurité') {
     return (
@@ -469,6 +557,15 @@ export default function DevView() {
                             >
                               <Shuffle size={13} />
                             </button>
+                            <button
+                              type="button"
+                              onClick={() => setUserToDelete(user)}
+                              disabled={user.id === currentUser.id}
+                              title={user.id === currentUser.id ? "Impossible de supprimer votre propre compte actif" : "Supprimer cet utilisateur"}
+                              className="p-1.5 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              <Trash2 size={13} />
+                            </button>
                           </div>
                         ) : (
                           <span className="text-[10px] text-zinc-400 italic">Verrouillé (Dev Uniquement)</span>
@@ -557,7 +654,7 @@ export default function DevView() {
                       <button
                         type="button"
                         onClick={() => handleOpenPinModal(user)}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-3 px-4 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-semibold shadow-2xs transition-all cursor-pointer active:scale-98 min-h-[44px]"
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-semibold shadow-2xs transition-all cursor-pointer active:scale-98 min-h-[44px]"
                       >
                         <KeyRound size={14} className="text-amber-400" />
                         <span>Éditer le PIN</span>
@@ -566,10 +663,20 @@ export default function DevView() {
                         type="button"
                         onClick={() => handleQuickGeneratePin(user.id)}
                         title="Générer un nouveau PIN aléatoire"
-                        className="p-3 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl border border-zinc-200/80 transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+                        className="p-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl border border-zinc-200/80 transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
                         aria-label="Générer PIN aléatoire"
                       >
                         <Shuffle size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUserToDelete(user)}
+                        disabled={user.id === currentUser.id}
+                        title={user.id === currentUser.id ? "Impossible de supprimer votre propre compte actif" : "Supprimer cet utilisateur"}
+                        className="p-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl border border-rose-200/80 transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
+                        aria-label="Supprimer cet utilisateur"
+                      >
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   )}
@@ -580,6 +687,7 @@ export default function DevView() {
         </div>
 
         {renderEditPinModal()}
+        {renderDeleteUserModal()}
       </div>
     );
   }
@@ -620,7 +728,7 @@ export default function DevView() {
                   <th className="px-4 py-3">Groupe de Couleur</th>
                   <th className="px-4 py-3 text-center">Code PIN</th>
                   <th className="px-4 py-3">Périmètre d'Accès</th>
-                  <th className="px-4 py-3 text-right">Action PIN</th>
+                  <th className="px-4 py-3 text-right">Actions Développeur</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200/70">
@@ -665,13 +773,24 @@ export default function DevView() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         {isDev ? (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenPinModal(user)}
-                            className="px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-200 transition-all cursor-pointer"
-                          >
-                            Éditer le PIN
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenPinModal(user)}
+                              className="px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-200 transition-all cursor-pointer"
+                            >
+                              Éditer le PIN
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setUserToDelete(user)}
+                              disabled={user.id === currentUser.id}
+                              title={user.id === currentUser.id ? "Impossible de supprimer votre propre compte actif" : "Supprimer cet utilisateur"}
+                              className="p-1 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
                         ) : (
                           <span className="text-[10px] text-zinc-400 italic">—</span>
                         )}
@@ -742,16 +861,28 @@ export default function DevView() {
                     </div>
                   </div>
 
-                  {/* Footer Action: Full-width "Éditer le PIN" with touch padding */}
+                  {/* Footer Action: "Éditer le PIN" and "Supprimer" with touch padding */}
                   {isDev && (
-                    <button
-                      type="button"
-                      onClick={() => handleOpenPinModal(user)}
-                      className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-semibold shadow-2xs transition-all cursor-pointer active:scale-98 min-h-[44px]"
-                    >
-                      <KeyRound size={14} className="text-amber-400" />
-                      <span>Éditer le PIN</span>
-                    </button>
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenPinModal(user)}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-semibold shadow-2xs transition-all cursor-pointer active:scale-98 min-h-[44px]"
+                      >
+                        <KeyRound size={14} className="text-amber-400" />
+                        <span>Éditer le PIN</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUserToDelete(user)}
+                        disabled={user.id === currentUser.id}
+                        title={user.id === currentUser.id ? "Impossible de supprimer votre propre compte actif" : "Supprimer cet utilisateur"}
+                        className="flex items-center justify-center p-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl border border-rose-200/80 transition-colors cursor-pointer min-h-[44px] min-w-[44px] disabled:opacity-30 disabled:cursor-not-allowed"
+                        aria-label="Supprimer cet utilisateur"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   )}
                 </div>
               );
@@ -760,6 +891,7 @@ export default function DevView() {
         </div>
 
         {renderEditPinModal()}
+        {renderDeleteUserModal()}
 
         {/* Add User Modal */}
         {isAddUserOpen && (

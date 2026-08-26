@@ -75,6 +75,16 @@ async function startServer() {
     }
   });
 
+  app.delete("/api/users/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      await db.delete(users).where(eq(users.id, id));
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // CHILDREN API (Fresh, real data)
   app.get("/api/children", async (_req: Request, res: Response) => {
     try {

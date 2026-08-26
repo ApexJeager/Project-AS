@@ -45,6 +45,7 @@ interface AppState {
   addChild: (child: Omit<Child, 'id'>) => Promise<void>;
   deleteChild: (childId: string) => Promise<void>;
   addUser: (user: Omit<User, 'id'>) => Promise<void>;
+  deleteUser: (userId: string) => Promise<void>;
   updateReportStatus: (reportId: string, status: "Draft" | "Submitted" | "Reviewed") => void;
   saveMonthlyReport: (report: Partial<MonthlyReport> & { color_group: any; month_year: string; content: string }) => Promise<void>;
   resetDatabase: () => Promise<void>;
@@ -103,8 +104,8 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
     refreshData();
   }, []);
 
-  // PIN Lock & Security
-  const [isLocked, setIsLocked] = useState<boolean>(false);
+  // PIN Lock & Security (Always land on PIN lock screen on app reload/entry)
+  const [isLocked, setIsLocked] = useState<boolean>(true);
   const [targetLockUserId, setTargetLockUserId] = useState<string | null>(null);
   const [lockReason, setLockReason] = useState<string | null>(null);
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -438,6 +439,24 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
     }
   };
 
+  const deleteUser = async (userId: string) => {
+    const targetUser = users.find(u => u.id === userId);
+    if (!targetUser) return;
+
+    if (currentUser.id === userId) {
+      addToast('warning', 'Action impossible', 'Vous ne pouvez pas supprimer le compte actuellement connecté.');
+      return;
+    }
+
+    try {
+      await api.deleteUser(userId);
+      await refreshData();
+      addToast('info', 'Utilisateur Supprimé', `Le compte de ${targetUser.name} a été retiré de la base de données.`);
+    } catch (e: any) {
+      addToast('warning', 'Erreur', e.message || 'Échec de la suppression.');
+    }
+  };
+
   const updateReportStatus = (reportId: string, status: "Draft" | "Submitted" | "Reviewed") => {
     setReports(prev => prev.map(r => r.id === reportId ? { ...r, status } : r));
     addToast('info', 'Rapport Mis à Jour', `Le statut du rapport est passé à "${getStatusLabel(status)}".`);
@@ -464,7 +483,7 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
     try {
       await api.resetDatabase();
       await refreshData();
-      setIsLocked(false);
+      setIsLocked(true);
       addToast('info', 'Base de Données Réinitialisée', 'Base Cloud SQL vidée : vous pouvez saisir des données réelles.');
     } catch (e: any) {
       addToast('warning', 'Erreur', e.message || 'Échec de la réinitialisation.');
@@ -502,6 +521,7 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
       addChild,
       deleteChild,
       addUser,
+      deleteUser,
       updateReportStatus,
       saveMonthlyReport,
       resetDatabase,

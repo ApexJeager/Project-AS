@@ -28,6 +28,13 @@ export const api = {
     return res.json();
   },
 
+  async deleteUser(id: string): Promise<void> {
+    const res = await fetch(`/api/users/${id}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Failed to delete user');
+  },
+
   // CHILDREN
   async getChildren(): Promise<Child[]> {
     const res = await fetch('/api/children');

@@ -1,8 +1,8 @@
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { User, Child, Attendance, MonthlyReport, DailyGrading, QualificationProgress } from './types';
-import { initialUsers, initialChildren, initialAttendances, initialReports, initialGradings } from './mockData';
 import { calculateDailyPoints, isRecruitFullyQualified, RANK_SYSTEM } from './constants/ranks';
 import { getColorGroupLabel, getRoleLabel, getStatusLabel } from './utils';
+import { api } from './services/api';
 
 interface Toast {
   id: string;
@@ -24,106 +24,84 @@ interface AppState {
   toasts: Toast[];
   addToast: (type: 'success' | 'info' | 'warning', title: string, message: string) => void;
   removeToast: (id: string) => void;
-  
-  // Gemini AI Assistant State
   geminiApiKey: string;
   setGeminiApiKey: (key: string) => void;
   isAiAssistantOpen: boolean;
   setIsAiAssistantOpen: (open: boolean) => void;
-
-  // PIN Security & Session State
+  
+  // PIN Lock & Authentication
   isLocked: boolean;
   targetLockUserId: string | null;
   lockReason: string | null;
-  lockSession: (targetUserIdOrReason?: string, reason?: string) => void;
-  unlockSession: (userId: string, pin: string) => { success: boolean; error?: string };
-  updateUserPin: (userId: string, newPin: string) => boolean;
+  lockSession: (targetUserIdOrReason?: string, explicitReason?: string) => void;
+  unlockSession: (userId: string, enteredPin: string) => { success: boolean; error?: string };
+  updateUserPin: (userId: string, newPin: string) => Promise<boolean>;
   generateRandomPin: () => string;
-  
-  // Astronaut Operations
-  saveDailyGrading: (grading: Partial<DailyGrading> & { child_id: string; date: string }) => void;
-  updateRecruitProgress: (childId: string, progressUpdates: Partial<QualificationProgress>) => void;
-  promoteChildRank: (childId: string, newRank: string) => void;
-  addChild: (childData: Omit<Child, 'id'>) => void;
-  addUser: (userData: Omit<User, 'id'>) => void;
+
+  // Business Logic
+  saveDailyGrading: (grading: Partial<DailyGrading> & { child_id: string; date: string }) => Promise<void>;
+  updateRecruitProgress: (childId: string, progressUpdates: Partial<QualificationProgress>) => Promise<void>;
+  promoteChildRank: (childId: string, newRank: string) => Promise<void>;
+  addChild: (child: Omit<Child, 'id'>) => Promise<void>;
+  deleteChild: (childId: string) => Promise<void>;
+  addUser: (user: Omit<User, 'id'>) => Promise<void>;
   updateReportStatus: (reportId: string, status: "Draft" | "Submitted" | "Reviewed") => void;
-  saveMonthlyReport: (report: Partial<MonthlyReport> & { color_group: any; month_year: string; content: string }) => void;
-  resetDatabase: () => void;
+  saveMonthlyReport: (report: Partial<MonthlyReport> & { color_group: any; month_year: string; content: string }) => Promise<void>;
+  resetDatabase: () => Promise<void>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
 
 const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes of inactivity auto-lock
 
-const USERS_STORAGE_KEY = 'astronautes_users_v2';
-const DATA_STORAGE_KEYS = { children: 'astronautes_children_v1', attendances: 'astronautes_attendances_v1', reports: 'astronautes_reports_v1', gradings: 'astronautes_gradings_v1' } as const;
-
-const loadStoredArray = <T,>(key: string, fallback: T[]): T[] => {
-  try {
-    const stored = localStorage.getItem(key);
-    const parsed = stored ? JSON.parse(stored) : null;
-    return Array.isArray(parsed) ? parsed : fallback;
-  } catch { return fallback; }
-};
-
-const loadStoredUsers = (): User[] => {
-  try {
-    const stored = localStorage.getItem(USERS_STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((u: any) => {
-          const isGlobalRole = u.role === 'Dev' || u.role === 'Admin';
-          const validPin = (u.pinCode || u.pin || (u.role === 'Dev' ? '1926' : '1000')).toString();
-          return {
-            id: u.id,
-            name: u.name,
-            role: u.role,
-            color_group: isGlobalRole ? null : (u.color_group || 'Red'),
-            pinCode: validPin,
-            pin: validPin,
-          };
-        });
-      }
-    }
-  } catch (e) {
-    console.warn('Failed to parse users from localStorage:', e);
-  }
-  return initialUsers;
-};
+const initialDefaultUsers: User[] = [
+  { id: "user_dev_1", name: "Justin (Dev)", role: "Dev", color_group: null, pinCode: "1926" },
+  { id: "user_admin_1", name: "Pasteur Admin", role: "Admin", color_group: null, pinCode: "0000" },
+  { id: "user_pilote_red", name: "Sarah (Pilote)", role: "Pilote", color_group: "Red", pinCode: "1001" },
+  { id: "user_pilote_green", name: "David (Pilote)", role: "Pilote", color_group: "Green", pinCode: "1002" },
+  { id: "user_pilote_yellow", name: "Esther (Pilote)", role: "Pilote", color_group: "Yellow", pinCode: "1003" },
+  { id: "user_pilote_blue", name: "Samuel (Pilote)", role: "Pilote", color_group: "Blue", pinCode: "1004" },
+];
 
 export function AppProvider({ children: reactChildren }: { children: ReactNode }) {
-  const [users, setUsers] = useState<User[]>(loadStoredUsers);
-  const [kids, setKids] = useState<Child[]>(() => loadStoredArray(DATA_STORAGE_KEYS.children, initialChildren));
-  const [attendances, setAttendances] = useState<Attendance[]>(() => loadStoredArray(DATA_STORAGE_KEYS.attendances, initialAttendances));
-  const [reports, setReports] = useState<MonthlyReport[]>(() => loadStoredArray(DATA_STORAGE_KEYS.reports, initialReports));
-  const [gradings, setGradings] = useState<DailyGrading[]>(() => loadStoredArray(DATA_STORAGE_KEYS.gradings, initialGradings));
+  const [users, setUsers] = useState<User[]>(initialDefaultUsers);
+  const [kids, setKids] = useState<Child[]>([]);
+  const [attendances, setAttendances] = useState<Attendance[]>([]);
+  const [reports, setReports] = useState<MonthlyReport[]>([]);
+  const [gradings, setGradings] = useState<DailyGrading[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   
-  const [currentUser, setCurrentUser] = useState<User>(() => {
-    const storedUsers = loadStoredUsers();
-    // Default to Pilote Peter or first non-Dev user for easy initial test, or stored
-    return storedUsers.find(u => u.id === 'u3') || storedUsers[0] || initialUsers[2];
-  });
+  const [currentUser, setCurrentUser] = useState<User>(initialDefaultUsers[2]);
   const [activeTab, setActiveTab] = useState<string>("Daily Grading");
 
-  useEffect(() => {
+  // Fetch initial real data from Cloud SQL / Backend API
+  const refreshData = async () => {
     try {
-      localStorage.setItem(DATA_STORAGE_KEYS.children, JSON.stringify(kids));
-      localStorage.setItem(DATA_STORAGE_KEYS.attendances, JSON.stringify(attendances));
-      localStorage.setItem(DATA_STORAGE_KEYS.reports, JSON.stringify(reports));
-      localStorage.setItem(DATA_STORAGE_KEYS.gradings, JSON.stringify(gradings));
-    } catch (e) { console.warn('Failed to persist demo data:', e); }
-  }, [kids, attendances, reports, gradings]);
+      const [fetchedUsers, fetchedKids, fetchedGradings, fetchedAttendances, fetchedReports] = await Promise.all([
+        api.getUsers().catch(() => initialDefaultUsers),
+        api.getChildren().catch(() => []),
+        api.getGradings().catch(() => []),
+        api.getAttendances().catch(() => []),
+        api.getReports().catch(() => []),
+      ]);
 
-  // Keep users synced to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+      if (fetchedUsers.length > 0) {
+        setUsers(fetchedUsers);
+        // Sync currentUser if existing
+        setCurrentUser(prev => fetchedUsers.find(u => u.id === prev.id) || fetchedUsers[2] || fetchedUsers[0]);
+      }
+      setKids(fetchedKids);
+      setGradings(fetchedGradings);
+      setAttendances(fetchedAttendances);
+      setReports(fetchedReports);
     } catch (e) {
-      console.warn('Failed to save users to localStorage:', e);
+      console.error('Error fetching database state:', e);
     }
-  }, [users]);
+  };
+
+  useEffect(() => {
+    refreshData();
+  }, []);
 
   // PIN Lock & Security
   const [isLocked, setIsLocked] = useState<boolean>(false);
@@ -212,7 +190,6 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
     }
-    // Only arm inactivity timer if not already locked
     if (!isLocked) {
       inactivityTimerRef.current = setTimeout(() => {
         lockSession('inactivity');
@@ -250,7 +227,6 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
     }
 
     const currentPinCode = targetUser.pinCode || targetUser.pin;
-    // Dev master PIN fallback: default is '1926' or updated pinCode
     const isMasterDevDefault = targetUser.role === 'Dev' && enteredPin === '1926';
     const isCorrectPin = enteredPin === currentPinCode;
 
@@ -260,7 +236,6 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
       setTargetLockUserId(null);
       setLockReason(null);
       
-      // Navigate to appropriate tab according to unlocked user's role
       if (targetUser.role === 'Dev') {
         if (!['Users', 'PINs', 'Logs', 'Leaderboard'].includes(activeTab)) {
           setActiveTab('Users');
@@ -283,42 +258,33 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
   };
 
   // Developer-exclusive PIN Update / Reset
-  const updateUserPin = (userId: string, newPin: string): boolean => {
+  const updateUserPin = async (userId: string, newPin: string): Promise<boolean> => {
     const sanitizedPin = newPin.trim();
     if (!/^\d{4}$/.test(sanitizedPin)) {
       addToast('warning', 'Format PIN Invalide', 'Le code PIN doit comporter exactement 4 chiffres (0-9).');
       return false;
     }
 
-    const targetUser = users.find(u => u.id === userId);
-    if (!targetUser) {
-      addToast('warning', 'Erreur', 'Utilisateur introuvable.');
+    try {
+      await api.updateUserPin(userId, sanitizedPin);
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, pinCode: sanitizedPin, pin: sanitizedPin } : u));
+      if (currentUser.id === userId) {
+        setCurrentUser(prev => ({ ...prev, pinCode: sanitizedPin, pin: sanitizedPin }));
+      }
+      const targetUser = users.find(u => u.id === userId);
+      addToast('success', 'Code PIN Mis à Jour', `Nouveau PIN (${sanitizedPin}) enregistré en base pour ${targetUser?.name}.`);
+      return true;
+    } catch (e: any) {
+      addToast('warning', 'Erreur de mise à jour', e.message || 'Impossible de mettre à jour le code PIN.');
       return false;
     }
-
-    setUsers(prev => {
-      const updated = prev.map(u => u.id === userId ? { ...u, pinCode: sanitizedPin, pin: sanitizedPin } : u);
-      try {
-        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.warn('Failed to save updated users to localStorage:', e);
-      }
-      return updated;
-    });
-
-    if (currentUser.id === userId) {
-      setCurrentUser(prev => ({ ...prev, pinCode: sanitizedPin, pin: sanitizedPin }));
-    }
-
-    addToast('success', 'Code PIN Mis à Jour', `Nouveau PIN (${sanitizedPin}) enregistré pour ${targetUser.name}.`);
-    return true;
   };
 
   const generateRandomPin = (): string => {
     return Math.floor(1000 + Math.random() * 9000).toString();
   };
 
-  const saveDailyGrading = (gradingInput: Partial<DailyGrading> & { child_id: string; date: string }) => {
+  const saveDailyGrading = async (gradingInput: Partial<DailyGrading> & { child_id: string; date: string }) => {
     const calculatedPoints = calculateDailyPoints(gradingInput);
     const gradingRecord: DailyGrading = {
       id: gradingInput.id || `g-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -336,135 +302,124 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
       total_day_points: calculatedPoints,
     };
 
-    // 1. Update gradings list
-    setGradings(prev => {
-      const existingIdx = prev.findIndex(g => g.child_id === gradingRecord.child_id && g.date === gradingRecord.date);
-      if (existingIdx >= 0) {
-        const next = [...prev];
-        next[existingIdx] = gradingRecord;
-        return next;
-      }
-      return [gradingRecord, ...prev];
-    });
+    try {
+      // 1. Save grading to Cloud SQL
+      await api.saveGrading(gradingRecord);
 
-    // 2. Update attendance record accordingly
-    setAttendances(prev => {
-      const existingIdx = prev.findIndex(a => a.child_id === gradingRecord.child_id && a.date === gradingRecord.date);
-      const newAttendanceStatus = gradingRecord.presence ? 'Present' : 'Absent';
-      if (existingIdx >= 0) {
-        const next = [...prev];
-        next[existingIdx] = {
-          ...next[existingIdx],
-          status: newAttendanceStatus,
-          recorded_by_user_id: currentUser.id,
-        };
-        return next;
-      }
-      return [
-        {
-          id: `a-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-          child_id: gradingRecord.child_id,
-          date: gradingRecord.date,
-          status: newAttendanceStatus,
-          recorded_by_user_id: currentUser.id,
-        },
-        ...prev,
-      ];
-    });
+      // 2. Save attendance to Cloud SQL
+      const newAttendance: Attendance = {
+        id: `a-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        child_id: gradingRecord.child_id,
+        date: gradingRecord.date,
+        status: gradingRecord.presence ? 'Present' : 'Absent',
+        recorded_by_user_id: currentUser.id,
+      };
+      await api.saveAttendance(newAttendance);
 
-    // 3. Update Child points
-    setKids(prevKids => {
-      return prevKids.map(child => {
-        if (child.id !== gradingRecord.child_id) return child;
-
-        // Recalculate total points by summing all gradings for this child
-        // including this new/updated grading
+      // 3. Update Child points & progress in Cloud SQL
+      const child = kids.find(k => k.id === gradingRecord.child_id);
+      if (child) {
         const otherGradings = gradings.filter(g => g.child_id === child.id && g.date !== gradingRecord.date);
         const allChildGradings = [gradingRecord, ...otherGradings];
         const newTotalPoints = allChildGradings.reduce((sum, g) => sum + g.total_day_points, 0);
 
-        // If recruit and present, we can also advance attendance progress
         let newProgress = { ...child.qualification_progress };
         if (child.status === 'Recruit' && gradingRecord.presence) {
-          // If consecutively present, ensure at least 1 week recorded
           if (newProgress.consecutive_weeks < 3) {
             newProgress.consecutive_weeks = Math.min(3, newProgress.consecutive_weeks + 1);
           }
         }
 
         const isNowQualified = child.status === 'Recruit' && isRecruitFullyQualified(newProgress);
-
-        return {
-          ...child,
+        const updatedChild: Partial<Child> = {
           total_accumulated_points: newTotalPoints,
           qualification_progress: newProgress,
           status: isNowQualified ? 'Qualified Astronaute' : child.status,
           current_rank: (isNowQualified && child.current_rank === 'Recruit') ? 'Astronaute' : child.current_rank,
         };
-      });
-    });
 
-    const targetChild = kids.find(k => k.id === gradingRecord.child_id);
-    addToast('success', 'Évaluation Enregistrée', `${calculatedPoints} pts enregistrés pour ${targetChild ? targetChild.first_name : 'l\'enfant'}.`);
+        await api.updateChild(child.id, updatedChild);
+      }
+
+      await refreshData();
+      addToast('success', 'Évaluation Enregistrée', `${calculatedPoints} pts enregistrés dans la base de données.`);
+    } catch (e: any) {
+      addToast('warning', 'Erreur d\'enregistrement', e.message || 'Impossible d\'enregistrer en base.');
+    }
   };
 
-  const updateRecruitProgress = (childId: string, progressUpdates: Partial<QualificationProgress>) => {
-    setKids(prevKids => {
-      return prevKids.map(child => {
-        if (child.id !== childId) return child;
-
-        const updatedProgress = {
-          ...child.qualification_progress,
-          ...progressUpdates,
-        };
-
-        const isQualified = isRecruitFullyQualified(updatedProgress);
-        const newStatus = isQualified ? 'Qualified Astronaute' : child.status;
-        const newRank = (isQualified && child.current_rank === 'Recruit') ? 'Astronaute' : child.current_rank;
-
-        return {
-          ...child,
-          qualification_progress: updatedProgress,
-          status: newStatus,
-          current_rank: newRank,
-        };
-      });
-    });
-
+  const updateRecruitProgress = async (childId: string, progressUpdates: Partial<QualificationProgress>) => {
     const targetChild = kids.find(k => k.id === childId);
-    addToast('info', 'Progression Mise à Jour', `Progression de qualification mise à jour pour ${targetChild?.first_name}.`);
+    if (!targetChild) return;
+
+    const updatedProgress = {
+      ...targetChild.qualification_progress,
+      ...progressUpdates,
+    };
+
+    const isQualified = isRecruitFullyQualified(updatedProgress);
+    const newStatus = isQualified ? 'Qualified Astronaute' : targetChild.status;
+    const newRank = (isQualified && targetChild.current_rank === 'Recruit') ? 'Astronaute' : targetChild.current_rank;
+
+    try {
+      await api.updateChild(childId, {
+        qualification_progress: updatedProgress,
+        status: newStatus,
+        current_rank: newRank,
+      });
+      await refreshData();
+      addToast('info', 'Progression Mise à Jour', `Progression sauvegardée pour ${targetChild.first_name}.`);
+    } catch (e: any) {
+      addToast('warning', 'Erreur', e.message || 'Échec de mise à jour.');
+    }
   };
 
-  const promoteChildRank = (childId: string, newRank: string) => {
+  const promoteChildRank = async (childId: string, newRank: string) => {
     if (!RANK_SYSTEM.some(rank => rank.title === newRank)) {
       addToast('warning', 'Promotion invalide', 'Le rang sélectionné ne fait pas partie de la matrice officielle.');
       return;
     }
-    setKids(prevKids => {
-      return prevKids.map(child => {
-        if (child.id !== childId) return child;
-        return {
-          ...child,
-          current_rank: newRank,
-          status: child.status === 'Recruit' ? 'Qualified Astronaute' : child.status,
-        };
-      });
-    });
 
     const targetChild = kids.find(k => k.id === childId);
-    addToast('success', 'Promotion Confirmée ! 🚀', `${targetChild?.first_name} ${targetChild?.last_name} a officiellement été promu au rang "${newRank}" !`);
+    if (!targetChild) return;
+
+    try {
+      await api.updateChild(childId, {
+        current_rank: newRank,
+        status: targetChild.status === 'Recruit' ? 'Qualified Astronaute' : targetChild.status,
+      });
+      await refreshData();
+      addToast('success', 'Promotion Confirmée ! 🚀', `${targetChild.first_name} ${targetChild.last_name} promu au rang "${newRank}" !`);
+    } catch (e: any) {
+      addToast('warning', 'Erreur', e.message || 'Échec de la promotion.');
+    }
   };
 
-  const addChild = (childData: Omit<Child, 'id'>) => {
+  const addChild = async (childData: Omit<Child, 'id'>) => {
     const newChild: Child = {
       ...childData,
       id: `c-${Date.now()}`,
     };
-    setKids(prev => [...prev, newChild]);
-    addToast('success', 'Enfant Inscrit', `${newChild.first_name} ${newChild.last_name} a été ajouté au Groupe ${getColorGroupLabel(newChild.color_group)}.`);
+    try {
+      await api.createChild(newChild);
+      await refreshData();
+      addToast('success', 'Enfant Inscrit', `${newChild.first_name} ${newChild.last_name} a été ajouté dans la base Cloud SQL.`);
+    } catch (e: any) {
+      addToast('warning', 'Erreur d\'inscription', e.message || 'Échec de l\'ajout de l\'enfant.');
+    }
   };
 
-  const addUser = (userData: Omit<User, 'id'>) => {
+  const deleteChild = async (childId: string) => {
+    try {
+      await api.deleteChild(childId);
+      await refreshData();
+      addToast('info', 'Enfant Supprimé', 'Le dossier de l\'enfant a été retiré de la base de données.');
+    } catch (e: any) {
+      addToast('warning', 'Erreur', e.message || 'Échec de la suppression.');
+    }
+  };
+
+  const addUser = async (userData: Omit<User, 'id'>) => {
     const isGlobal = userData.role === 'Dev' || userData.role === 'Admin';
     const assignedPin = (userData.pinCode || userData.pin || generateRandomPin()).trim();
     const newUser: User = {
@@ -474,16 +429,13 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
       pinCode: assignedPin,
       pin: assignedPin,
     };
-    setUsers(prev => {
-      const updated = [...prev, newUser];
-      try {
-        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.warn('Failed to persist user to localStorage:', e);
-      }
-      return updated;
-    });
-    addToast('success', 'Utilisateur Créé', `${newUser.name} ajouté avec le rôle ${getRoleLabel(newUser.role)} (PIN: ${newUser.pinCode}).`);
+    try {
+      await api.createUser(newUser);
+      await refreshData();
+      addToast('success', 'Utilisateur Créé', `${newUser.name} ajouté en base avec le rôle ${getRoleLabel(newUser.role)} (PIN: ${newUser.pinCode}).`);
+    } catch (e: any) {
+      addToast('warning', 'Erreur', e.message || 'Échec de la création.');
+    }
   };
 
   const updateReportStatus = (reportId: string, status: "Draft" | "Submitted" | "Reviewed") => {
@@ -491,42 +443,32 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
     addToast('info', 'Rapport Mis à Jour', `Le statut du rapport est passé à "${getStatusLabel(status)}".`);
   };
 
-  const saveMonthlyReport = (report: Partial<MonthlyReport> & { color_group: any; month_year: string; content: string }) => {
-    setReports(prev => {
-      const idx = prev.findIndex(r => r.color_group === report.color_group && r.month_year === report.month_year);
-      if (idx >= 0) {
-        const updated = [...prev];
-        updated[idx] = { ...updated[idx], ...report, status: report.status || 'Submitted' };
-        return updated;
-      }
-      return [
-        {
-          id: `r-${Date.now()}`,
-          color_group: report.color_group,
-          month_year: report.month_year,
-          content: report.content,
-          status: report.status || 'Submitted',
-        },
-        ...prev,
-      ];
-    });
-    addToast('success', 'Rapport Enregistré', `Rapport mensuel pour le Groupe ${getColorGroupLabel(report.color_group)} soumis avec succès.`);
+  const saveMonthlyReport = async (report: Partial<MonthlyReport> & { color_group: any; month_year: string; content: string }) => {
+    const reportRecord: MonthlyReport = {
+      id: report.id || `r-${Date.now()}`,
+      color_group: report.color_group,
+      month_year: report.month_year,
+      content: report.content || '',
+      status: report.status || 'Submitted',
+    };
+    try {
+      await api.saveReport(reportRecord);
+      await refreshData();
+      addToast('success', 'Rapport Enregistré', `Rapport mensuel pour le Groupe ${getColorGroupLabel(report.color_group)} sauvegardé en base.`);
+    } catch (e: any) {
+      addToast('warning', 'Erreur', e.message || 'Échec de la sauvegarde du rapport.');
+    }
   };
 
-  const resetDatabase = () => {
+  const resetDatabase = async () => {
     try {
-      localStorage.removeItem(USERS_STORAGE_KEY);
-      Object.values(DATA_STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
-    } catch (e) {
-      console.warn('Failed to clear users storage:', e);
+      await api.resetDatabase();
+      await refreshData();
+      setIsLocked(false);
+      addToast('info', 'Base de Données Réinitialisée', 'Base Cloud SQL vidée : vous pouvez saisir des données réelles.');
+    } catch (e: any) {
+      addToast('warning', 'Erreur', e.message || 'Échec de la réinitialisation.');
     }
-    setUsers(initialUsers);
-    setKids(initialChildren);
-    setAttendances(initialAttendances);
-    setReports(initialReports);
-    setGradings(initialGradings);
-    setIsLocked(false);
-    addToast('info', 'Base de Données Réinitialisée', 'Système rechargé avec les données et schémas mock par défaut.');
   };
 
   return (
@@ -558,6 +500,7 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
       updateRecruitProgress,
       promoteChildRank,
       addChild,
+      deleteChild,
       addUser,
       updateReportStatus,
       saveMonthlyReport,

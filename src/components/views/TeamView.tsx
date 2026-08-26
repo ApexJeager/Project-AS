@@ -66,7 +66,9 @@ export default function TeamView() {
   const [newStatus, setNewStatus] = useState<'Recruit' | 'Qualified Astronaute'>('Recruit');
 
   // Report state
-  const latestReport = reports.find(r => r.color_group === groupColor && r.month_year === '2026-08');
+  const reportMonth = new Date().toISOString().slice(0, 7);
+  const reportMonthLabel = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date(`${reportMonth}-01`));
+  const latestReport = reports.find(r => r.color_group === groupColor && r.month_year === reportMonth);
   const [reportContent, setReportContent] = useState(latestReport?.content || '');
 
   if (!groupColor) {
@@ -125,7 +127,7 @@ export default function TeamView() {
   const handleSaveReport = (status: 'Draft' | 'Submitted') => {
     saveMonthlyReport({
       color_group: groupColor,
-      month_year: '2026-08',
+      month_year: reportMonth,
       content: reportContent,
       status,
     });
@@ -695,7 +697,7 @@ export default function TeamView() {
               <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${getColorGroupClasses(groupColor)}`}>
                 Groupe {getColorGroupLabel(groupColor)}
               </span>
-              <span className="text-xs font-medium text-zinc-500">• Période : Août 2026</span>
+              <span className="text-xs font-medium text-zinc-500">• Période : {reportMonthLabel}</span>
             </div>
 
             <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${

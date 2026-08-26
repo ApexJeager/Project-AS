@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { User, Child, Attendance, MonthlyReport, DailyGrading, QualificationProgress } from './types';
 import { initialUsers, initialChildren, initialAttendances, initialReports, initialGradings } from './mockData';
-import { calculateDailyPoints, isRecruitFullyQualified } from './constants/ranks';
+import { calculateDailyPoints, isRecruitFullyQualified, RANK_SYSTEM } from './constants/ranks';
 import { getColorGroupLabel, getRoleLabel, getStatusLabel } from './utils';
 
 interface Toast {
@@ -56,6 +56,15 @@ const AppContext = createContext<AppState | undefined>(undefined);
 const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes of inactivity auto-lock
 
 const USERS_STORAGE_KEY = 'astronautes_users_v2';
+const DATA_STORAGE_KEYS = { children: 'astronautes_children_v1', attendances: 'astronautes_attendances_v1', reports: 'astronautes_reports_v1', gradings: 'astronautes_gradings_v1' } as const;
+
+const loadStoredArray = <T,>(key: string, fallback: T[]): T[] => {
+  try {
+    const stored = localStorage.getItem(key);
+    const parsed = stored ? JSON.parse(stored) : null;
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch { return fallback; }
+};
 
 const loadStoredUsers = (): User[] => {
   try {
@@ -85,10 +94,10 @@ const loadStoredUsers = (): User[] => {
 
 export function AppProvider({ children: reactChildren }: { children: ReactNode }) {
   const [users, setUsers] = useState<User[]>(loadStoredUsers);
-  const [kids, setKids] = useState<Child[]>(initialChildren);
-  const [attendances, setAttendances] = useState<Attendance[]>(initialAttendances);
-  const [reports, setReports] = useState<MonthlyReport[]>(initialReports);
-  const [gradings, setGradings] = useState<DailyGrading[]>(initialGradings);
+  const [kids, setKids] = useState<Child[]>(() => loadStoredArray(DATA_STORAGE_KEYS.children, initialChildren));
+  const [attendances, setAttendances] = useState<Attendance[]>(() => loadStoredArray(DATA_STORAGE_KEYS.attendances, initialAttendances));
+  const [reports, setReports] = useState<MonthlyReport[]>(() => loadStoredArray(DATA_STORAGE_KEYS.reports, initialReports));
+  const [gradings, setGradings] = useState<DailyGrading[]>(() => loadStoredArray(DATA_STORAGE_KEYS.gradings, initialGradings));
   const [toasts, setToasts] = useState<Toast[]>([]);
   
   const [currentUser, setCurrentUser] = useState<User>(() => {
@@ -97,6 +106,15 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
     return storedUsers.find(u => u.id === 'u3') || storedUsers[0] || initialUsers[2];
   });
   const [activeTab, setActiveTab] = useState<string>("Daily Grading");
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DATA_STORAGE_KEYS.children, JSON.stringify(kids));
+      localStorage.setItem(DATA_STORAGE_KEYS.attendances, JSON.stringify(attendances));
+      localStorage.setItem(DATA_STORAGE_KEYS.reports, JSON.stringify(reports));
+      localStorage.setItem(DATA_STORAGE_KEYS.gradings, JSON.stringify(gradings));
+    } catch (e) { console.warn('Failed to persist demo data:', e); }
+  }, [kids, attendances, reports, gradings]);
 
   // Keep users synced to localStorage
   useEffect(() => {
@@ -418,6 +436,10 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
   };
 
   const promoteChildRank = (childId: string, newRank: string) => {
+    if (!RANK_SYSTEM.some(rank => rank.title === newRank)) {
+      addToast('warning', 'Promotion invalide', 'Le rang sélectionné ne fait pas partie de la matrice officielle.');
+      return;
+    }
     setKids(prevKids => {
       return prevKids.map(child => {
         if (child.id !== childId) return child;
@@ -494,6 +516,7 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
   const resetDatabase = () => {
     try {
       localStorage.removeItem(USERS_STORAGE_KEY);
+      Object.values(DATA_STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
     } catch (e) {
       console.warn('Failed to clear users storage:', e);
     }

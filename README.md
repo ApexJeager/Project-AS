@@ -3,6 +3,7 @@
 Une application web d'excellence conçue sur mesure pour le **Ministère des Enfants Astronautes**, alliant rigueur pédagogique, notation quotidienne basée sur 8 critères officiels, qualification des recrues, matrice solennelle de 18 rangs bibliques, gouvernance par rôles (RBAC) sécurisée par code PIN, et assistant IA embarqué.
 
 ---
+> **Important — mode prototype :** les données de démonstration sont conservées localement dans le navigateur. Cette version ne fournit pas encore d’authentification serveur, de RBAC inviolable ni de sauvegarde multi-utilisateur. Ne pas utiliser avec des données personnelles réelles sans ajouter un backend sécurisé.
 
 ## 🌟 Points Clés & Fonctionnalités Majeures
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAppContext } from '../AppContext';
 import { getRoleClasses, getRoleLabel, getColorGroupClasses, getColorGroupDot, getColorGroupLabel } from '../utils';
-import { Shield, Lock, Unlock, KeyRound, Check, Delete, ChevronDown, Rocket, HelpCircle, AlertCircle, Sparkles } from 'lucide-react';
+import { Shield, Lock, Unlock, Check, Delete, ChevronDown, Rocket, AlertCircle, Sparkles } from 'lucide-react';
 import { User } from '../types';
 
 export default function PinLockScreen() {
@@ -15,7 +15,6 @@ export default function PinLockScreen() {
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState<boolean>(false);
-  const [showDemoPins, setShowDemoPins] = useState<boolean>(false);
 
   // Sync selectedUserId if targetLockUserId changes
   useEffect(() => {
@@ -126,45 +125,7 @@ export default function PinLockScreen() {
             <p className="text-[11px] text-zinc-400 font-medium">Ministère des Enfants</p>
           </div>
         </div>
-
-        {/* Demo PINs toggle helper */}
-        <button
-          type="button"
-          onClick={() => setShowDemoPins(!showDemoPins)}
-          className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-400 hover:text-zinc-200 bg-zinc-900/90 hover:bg-zinc-850 border border-zinc-800 px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-xs active:scale-95"
-          title="Consulter les codes PIN"
-        >
-          <HelpCircle size={14} className="text-amber-400" />
-          <span className="hidden sm:inline">Codes PIN par défaut</span>
-        </button>
       </div>
-
-      {/* Demo PINs Accordion Banner */}
-      {showDemoPins && (
-        <div className="w-full max-w-md bg-zinc-900/95 backdrop-blur-md border border-zinc-800 rounded-2xl p-4 my-2 text-xs space-y-2.5 animate-in slide-in-from-top-2 duration-150 shadow-xl relative z-10">
-          <div className="flex items-center justify-between font-bold text-zinc-200 pb-2 border-b border-zinc-800/80">
-            <span className="flex items-center gap-2 text-[11px]">
-              <KeyRound size={14} className="text-amber-400" />
-              Codes PIN Système Préconfigurés :
-            </span>
-            <span className="text-[10px] text-amber-400 font-mono font-bold">Dev Master: 1926</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-[11px] text-zinc-300 font-mono">
-            {users.map(u => (
-              <div 
-                key={u.id} 
-                onClick={() => handleSelectUser(u.id)}
-                className={`p-2 rounded-xl bg-zinc-950/80 border border-zinc-800 flex items-center justify-between cursor-pointer hover:border-zinc-700 transition-all ${
-                  selectedUserId === u.id ? 'ring-2 ring-amber-400/80 bg-zinc-850 shadow-xs' : ''
-                }`}
-              >
-                <span className="text-zinc-300 truncate mr-1.5 font-sans font-medium">{u.name} :</span>
-                <span className="font-bold text-amber-400 shrink-0">{u.pinCode || u.pin}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Main Lockpad Card */}
       <div className="w-full max-w-sm my-auto flex flex-col items-center space-y-5 relative z-10">
@@ -343,7 +304,7 @@ export default function PinLockScreen() {
         {/* Master Developer Mention */}
         <div className="text-center pt-2">
           <p className="text-[11px] text-zinc-500">
-            Contrôle d'accès géré exclusivement par le <strong className="text-zinc-300 font-semibold">Développeur</strong> (Master PIN : 1926).
+            Les accès sont protégés par un code confidentiel à 4 chiffres. Contactez un administrateur si vous avez besoin d’aide.
           </p>
         </div>
       </div>

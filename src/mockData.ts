@@ -1,12 +1,12 @@
 import { User, Child, Attendance, MonthlyReport, DailyGrading } from './types';
 
 export const initialUsers: User[] = [
-  { id: 'u1', name: 'Dev David', role: 'Dev', color_group: null, pin: '1926' },
-  { id: 'u2', name: 'Admin Alice', role: 'Admin', color_group: null, pin: '2026' },
-  { id: 'u3', name: 'Pilote Peter', role: 'Pilote', color_group: 'Red', pin: '1001' },
-  { id: 'u4', name: 'Pilote Paul', role: 'Pilote', color_group: 'Blue', pin: '1002' },
-  { id: 'u5', name: 'Co-Pilote Chloe', role: 'Co-Pilote', color_group: 'Yellow', pin: '1003' },
-  { id: 'u6', name: 'Helper Harry', role: 'Helper', color_group: 'Green', pin: '1004' },
+  { id: 'u1', name: 'Dev David', role: 'Dev', color_group: null, pinCode: '1926', pin: '1926' },
+  { id: 'u2', name: 'Admin Alice', role: 'Admin', color_group: null, pinCode: '2026', pin: '2026' },
+  { id: 'u3', name: 'Pilote Peter', role: 'Pilote', color_group: 'Red', pinCode: '1001', pin: '1001' },
+  { id: 'u4', name: 'Pilote Paul', role: 'Pilote', color_group: 'Blue', pinCode: '1002', pin: '1002' },
+  { id: 'u5', name: 'Co-Pilote Chloe', role: 'Co-Pilote', color_group: 'Yellow', pinCode: '1003', pin: '1003' },
+  { id: 'u6', name: 'Helper Harry', role: 'Helper', color_group: 'Green', pinCode: '1004', pin: '1004' },
 ];
 
 export const initialChildren: Child[] = [

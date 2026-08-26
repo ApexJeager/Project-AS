@@ -233,23 +233,23 @@ export default function AiAssistantDrawer() {
       {isAiAssistantOpen && (
         <div 
           id="ai-assistant-drawer-container"
-          className="fixed bottom-20 right-4 sm:right-6 z-50 w-[calc(100vw-32px)] sm:w-[440px] h-[580px] max-h-[82vh] bg-white rounded-2xl shadow-2xl border border-zinc-300/80 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
+          className="fixed bottom-20 right-4 sm:right-6 z-50 w-[calc(100vw-32px)] sm:w-[460px] h-[600px] max-h-[82vh] bg-zinc-950 rounded-3xl shadow-2xl border border-zinc-800 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
         >
           {/* Header */}
-          <div className="bg-zinc-950 text-white px-4 py-3 border-b border-zinc-800 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-400">
-                <Bot size={17} />
+          <div className="bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 text-white px-4.5 py-3.5 border-b border-zinc-800 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-400/10 border border-amber-400/30 flex items-center justify-center text-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.2)]">
+                <Bot size={18} />
               </div>
               <div>
-                <div className="flex items-center gap-1.5">
-                  <h3 className="font-bold text-xs text-white">Assistant Astronautes</h3>
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-mono font-medium bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <div className="flex items-center gap-2">
+                  <h3 className="font-display font-bold text-xs text-white">Assistant Astronautes</h3>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-400/10 text-amber-300 border border-amber-400/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                     Gemini AI
                   </span>
                 </div>
-                <p className="text-[10px] text-zinc-400">Guide officiel des règles & versets du ministère</p>
+                <p className="text-[10px] text-zinc-400 font-medium">Guide officiel des règles & versets du ministère</p>
               </div>
             </div>
 
@@ -258,8 +258,8 @@ export default function AiAssistantDrawer() {
                 type="button"
                 onClick={() => setShowKeyConfig(!showKeyConfig)}
                 title="Paramètres Clé API Gemini"
-                className={`p-1.5 rounded-md text-xs transition-colors cursor-pointer ${
-                  showKeyConfig ? 'bg-zinc-800 text-amber-400' : 'text-zinc-400 hover:text-white hover:bg-zinc-850'
+                className={`p-2 rounded-xl text-xs transition-all cursor-pointer ${
+                  showKeyConfig ? 'bg-zinc-800 text-amber-400 shadow-xs' : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
                 }`}
               >
                 <Key size={14} />
@@ -268,7 +268,7 @@ export default function AiAssistantDrawer() {
                 type="button"
                 onClick={handleResetChat}
                 title="Effacer la discussion"
-                className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-850 rounded-md text-xs transition-colors cursor-pointer"
+                className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl text-xs transition-all cursor-pointer"
               >
                 <RotateCcw size={14} />
               </button>
@@ -276,7 +276,7 @@ export default function AiAssistantDrawer() {
                 type="button"
                 onClick={() => setIsAiAssistantOpen(false)}
                 title="Fermer"
-                className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-850 rounded-md text-xs transition-colors cursor-pointer ml-1"
+                className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl text-xs transition-all cursor-pointer ml-0.5"
               >
                 <X size={16} />
               </button>
@@ -285,21 +285,21 @@ export default function AiAssistantDrawer() {
 
           {/* Optional API Key inline config panel */}
           {showKeyConfig && (
-            <div className="bg-zinc-900 text-zinc-100 p-3.5 border-b border-zinc-800 text-xs animate-in fade-in duration-150">
+            <div className="bg-zinc-900 text-zinc-100 p-4 border-b border-zinc-800 text-xs animate-in fade-in duration-150">
               <div className="flex items-center justify-between mb-2">
-                <span className="font-semibold text-[11px] text-amber-400 flex items-center gap-1.5">
-                  <ShieldCheck size={13} />
+                <span className="font-bold text-[11px] text-amber-400 flex items-center gap-1.5">
+                  <ShieldCheck size={14} />
                   Configuration Clé API Gemini
                 </span>
                 <button 
                   type="button"
                   onClick={() => setShowKeyConfig(false)}
-                  className="text-zinc-400 hover:text-white text-[10px]"
+                  className="text-zinc-400 hover:text-white text-[10px] font-medium"
                 >
                   Fermer
                 </button>
               </div>
-              <p className="text-[10px] text-zinc-400 mb-2.5">
+              <p className="text-[10px] text-zinc-400 mb-2.5 leading-relaxed">
                 Une clé API Gemini permet la génération dynamique. Si aucune clé n'est fournie, l'assistant utilise le moteur intelligent des règles embarqué.
               </p>
               <form onSubmit={handleSaveApiKey} className="flex gap-2">
@@ -308,11 +308,11 @@ export default function AiAssistantDrawer() {
                   value={tempKeyInput}
                   onChange={(e) => setTempKeyInput(e.target.value)}
                   placeholder="Collez votre clé API Gemini (AIza...)"
-                  className="flex-1 px-2.5 py-1.5 bg-zinc-950 border border-zinc-700 rounded text-[11px] text-white focus:outline-none focus:border-amber-400"
+                  className="flex-1 px-3 py-2 bg-zinc-950 border border-zinc-700 rounded-xl text-[11px] text-white focus:outline-none focus:border-amber-400 font-mono"
                 />
                 <button
                   type="submit"
-                  className="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-zinc-950 font-bold rounded text-[11px] transition-colors cursor-pointer"
+                  className="px-3.5 py-2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-zinc-950 font-bold rounded-xl text-[11px] transition-all cursor-pointer active:scale-95 shadow-xs"
                 >
                   Valider
                 </button>
@@ -321,8 +321,8 @@ export default function AiAssistantDrawer() {
           )}
 
           {/* Quick Prompt Pills Bar */}
-          <div className="bg-zinc-50 px-3 py-2 border-b border-zinc-200/80 overflow-x-auto no-scrollbar shrink-0 flex items-center gap-1.5">
-            <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap pl-0.5">
+          <div className="bg-zinc-900/80 px-3.5 py-2.5 border-b border-zinc-800/80 overflow-x-auto no-scrollbar shrink-0 flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider whitespace-nowrap pl-0.5">
               Suggestions :
             </span>
             {SUGGESTED_PROMPTS.map((prompt, index) => (
@@ -331,7 +331,7 @@ export default function AiAssistantDrawer() {
                 type="button"
                 onClick={() => handleSendMessage(prompt)}
                 disabled={isLoading}
-                className="whitespace-nowrap px-2.5 py-1 rounded-full text-[10px] font-medium bg-white text-zinc-700 hover:text-zinc-950 hover:bg-zinc-100 border border-zinc-200 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+                className="whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-semibold bg-zinc-800 text-zinc-300 hover:text-amber-300 hover:bg-zinc-750 border border-zinc-700/60 shadow-2xs transition-all cursor-pointer disabled:opacity-50 active:scale-95"
               >
                 {prompt}
               </button>
@@ -339,7 +339,7 @@ export default function AiAssistantDrawer() {
           </div>
 
           {/* Message History */}
-          <div className="flex-1 p-3.5 space-y-3.5 overflow-y-auto bg-zinc-100/60">
+          <div className="flex-1 p-4 space-y-4 overflow-y-auto bg-zinc-900/50">
             {messages.map((msg) => {
               const isUser = msg.role === 'user';
               return (
@@ -348,21 +348,21 @@ export default function AiAssistantDrawer() {
                   className={`flex items-start gap-2.5 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
                 >
                   <div
-                    className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 text-[10px] font-bold ${
+                    className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 text-[10px] font-bold shadow-xs ${
                       isUser
-                        ? 'bg-zinc-900 text-white'
-                        : 'bg-zinc-950 text-amber-400 border border-zinc-800'
+                        ? 'bg-zinc-800 text-white border border-zinc-700'
+                        : 'bg-zinc-950 text-amber-400 border border-zinc-800 shadow-[0_0_8px_rgba(251,191,36,0.15)]'
                     }`}
                   >
-                    {isUser ? <UserIcon size={12} /> : <Sparkles size={12} />}
+                    {isUser ? <UserIcon size={13} /> : <Sparkles size={13} />}
                   </div>
 
-                  <div className={`relative max-w-[84%] group`}>
+                  <div className={`relative max-w-[86%] group`}>
                     <div
-                      className={`p-3 rounded-xl shadow-2xs ${
+                      className={`p-3.5 rounded-2xl shadow-sm ${
                         isUser
-                          ? 'bg-zinc-900 text-zinc-100 rounded-tr-xs'
-                          : 'bg-white border border-zinc-200 text-zinc-900 rounded-tl-xs'
+                          ? 'bg-zinc-800 text-zinc-100 rounded-tr-xs border border-zinc-700'
+                          : 'bg-zinc-950 border border-zinc-800 text-zinc-200 rounded-tl-xs'
                       }`}
                     >
                       {isUser ? (
@@ -372,16 +372,16 @@ export default function AiAssistantDrawer() {
                       )}
                     </div>
 
-                    <div className={`flex items-center gap-1.5 mt-1 px-1 text-[9px] text-zinc-500 ${isUser ? 'justify-end' : 'justify-between'}`}>
+                    <div className={`flex items-center gap-2 mt-1.5 px-1.5 text-[9px] text-zinc-400 font-medium ${isUser ? 'justify-end' : 'justify-between'}`}>
                       <span>{msg.timestamp}</span>
                       {!isUser && (
                         <button
                           type="button"
                           onClick={() => handleCopyMessage(msg.id, msg.text)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-zinc-400 hover:text-zinc-800 cursor-pointer"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-zinc-400 hover:text-amber-300 cursor-pointer"
                           title="Copier le texte"
                         >
-                          {copiedId === msg.id ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} />}
+                          {copiedId === msg.id ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
                         </button>
                       )}
                     </div>
@@ -393,14 +393,14 @@ export default function AiAssistantDrawer() {
             {/* Typing Indicator */}
             {isLoading && (
               <div className="flex items-start gap-2.5 animate-in fade-in duration-150">
-                <div className="w-6 h-6 rounded-md bg-zinc-950 text-amber-400 border border-zinc-800 flex items-center justify-center shrink-0">
-                  <Sparkles size={12} className="animate-spin" />
+                <div className="w-7 h-7 rounded-xl bg-zinc-950 text-amber-400 border border-zinc-800 flex items-center justify-center shrink-0">
+                  <Sparkles size={13} className="animate-spin" />
                 </div>
-                <div className="bg-white border border-zinc-200 px-3.5 py-2.5 rounded-xl rounded-tl-xs shadow-2xs flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '300ms' }} />
-                  <span className="text-[10px] text-zinc-500 font-medium pl-1">Recherche dans les règles...</span>
+                <div className="bg-zinc-950 border border-zinc-800 px-4 py-3 rounded-2xl rounded-tl-xs shadow-sm flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <span className="text-[10px] text-zinc-400 font-medium pl-1">Consultation des règles...</span>
                 </div>
               </div>
             )}
@@ -409,7 +409,7 @@ export default function AiAssistantDrawer() {
           </div>
 
           {/* Chat Input Bar */}
-          <div className="bg-white p-3 border-t border-zinc-200 shrink-0">
+          <div className="bg-zinc-950 p-3.5 border-t border-zinc-800 shrink-0">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -424,19 +424,19 @@ export default function AiAssistantDrawer() {
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder="Posez une question sur les règles, versets, rapports..."
                 disabled={isLoading}
-                className="flex-1 px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs text-zinc-900 placeholder:text-zinc-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 disabled:opacity-60 transition-colors"
+                className="flex-1 px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs text-white placeholder:text-zinc-500 focus:bg-zinc-850 focus:outline-none focus:ring-1 focus:ring-amber-400 focus:border-amber-400 disabled:opacity-60 transition-all font-medium"
               />
               <button
                 type="submit"
                 disabled={!inputText.trim() || isLoading}
-                className="px-3 py-2 bg-zinc-950 hover:bg-zinc-850 disabled:bg-zinc-200 text-white disabled:text-zinc-400 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center cursor-pointer disabled:cursor-not-allowed shadow-2xs"
+                className="px-3.5 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 disabled:from-zinc-800 disabled:to-zinc-800 text-zinc-950 disabled:text-zinc-500 rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer disabled:cursor-not-allowed shadow-xs active:scale-95 glow-amber-subtle"
                 title="Envoyer"
               >
                 <Send size={14} />
               </button>
             </form>
-            <div className="mt-1.5 flex items-center justify-between text-[9px] text-zinc-500 px-0.5">
-              <span>Règles & Barème 250 pts • 18 Rangs • 4 Groupes</span>
+            <div className="mt-2 flex items-center justify-between text-[9px] text-zinc-500 px-1 font-medium">
+              <span>Barème 250 pts • 18 Rangs • 4 Groupes</span>
               <span>Entrée pour envoyer</span>
             </div>
           </div>

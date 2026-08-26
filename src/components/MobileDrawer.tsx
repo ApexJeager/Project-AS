@@ -29,27 +29,20 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
   const { 
     currentUser, 
     users, 
-    setCurrentUser, 
     activeTab, 
     setActiveTab, 
     setIsAiAssistantOpen,
     resetDatabase,
     lockSession,
-    addToast
   } = useAppContext();
 
   if (!isOpen) return null;
 
   const handleUserChange = (userId: string) => {
-    const user = users.find(u => u.id === userId);
-    if (user) {
-      setCurrentUser(user);
-      if (user.role === 'Dev') setActiveTab('Users');
-      else if (user.role === 'Admin') setActiveTab('Overview');
-      else setActiveTab('Daily Grading');
-      addToast('info', 'Compte Changé', `Connecté en tant que ${user.name} (${user.role}).`);
-    }
     onClose();
+    const target = users.find(u => u.id === userId);
+    const targetName = target ? target.name : 'l\'utilisateur';
+    lockSession(userId, `Authentification PIN requise pour basculer sur le profil ${targetName}.`);
   };
 
   const handleSelectTab = (tabId: string) => {
@@ -64,7 +57,7 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
 
   const handleLockSession = () => {
     onClose();
-    lockSession();
+    lockSession(undefined, "Session verrouillée manuellement.");
   };
 
   const handleReset = () => {
@@ -261,11 +254,17 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
             </button>
           </div>
 
-          {/* User Switcher List */}
+          {/* User Switcher List with PIN Gate */}
           <div className="space-y-1 pt-2 border-t border-zinc-850">
-            <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider px-1 mb-2">
-              Changer d'Utilisateur
-            </p>
+            <div className="flex items-center justify-between px-1 mb-2">
+              <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+                Changer d'Utilisateur
+              </p>
+              <span className="text-[9px] text-amber-400 font-medium flex items-center gap-1">
+                <Lock size={10} />
+                <span>PIN requis</span>
+              </span>
+            </div>
             <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
               {users.map(u => {
                 const isSelected = u.id === currentUser.id;
@@ -289,7 +288,13 @@ export default function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
                         </p>
                       </div>
                     </div>
-                    {isSelected && <Check size={13} className="text-emerald-400 shrink-0" />}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {isSelected ? (
+                        <Check size={13} className="text-emerald-400 shrink-0" />
+                      ) : (
+                        <Lock size={12} className="text-zinc-600 shrink-0" />
+                      )}
+                    </div>
                   </button>
                 );
               })}

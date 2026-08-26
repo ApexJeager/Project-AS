@@ -6,7 +6,8 @@ export interface User {
   name: string;
   role: Role;
   color_group: ColorGroup | null;
-  pin: string; // 4-digit security PIN (Dev master: "1926")
+  pinCode: string; // 4-digit security PIN (Dev master default: "1926")
+  pin?: string; // alias for backwards-compatibility
 }
 
 export interface QualificationProgress {

@@ -26,6 +26,7 @@ import {
 
 export default function DevView() {
   const { 
+    currentUser,
     activeTab, 
     setActiveTab,
     users, 
@@ -41,6 +42,27 @@ export default function DevView() {
     lockSession,
     addToast
   } = useAppContext();
+
+  const isDev = currentUser.role === 'Dev';
+
+  if (!isDev) {
+    return (
+      <div className="p-8 max-w-md mx-auto text-center space-y-4 animate-in fade-in">
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 shadow-xs">
+          <Shield className="mx-auto text-amber-500 mb-2" size={24} />
+          <p className="font-bold text-sm">Accès Réservé au Développeur</p>
+          <p className="text-xs text-amber-700 mt-1">Vous devez vous authentifier avec le compte Développeur et le code PIN maître pour accéder à cette console.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => lockSession(undefined, "Accès réservé au Développeur. Veuillez saisir votre code PIN.")}
+          className="px-4 py-2 bg-zinc-950 text-white text-xs font-semibold rounded-lg hover:bg-zinc-850 transition-colors shadow-2xs"
+        >
+          S'authentifier en tant que Développeur
+        </button>
+      </div>
+    );
+  }
 
   // Gemini API Key state in Dev portal
   const [apiKeyInput, setApiKeyInput] = useState(geminiApiKey || '');
@@ -64,16 +86,25 @@ export default function DevView() {
   };
 
   const handleOpenPinModal = (user: User) => {
+    if (!isDev) {
+      addToast('warning', 'Accès Refusé', 'Seul le Développeur a l\'autorisation de modifier les codes PIN.');
+      return;
+    }
     setSelectedUserForPin(user);
-    setEditPinInput(user.pin);
+    setEditPinInput(user.pinCode || user.pin || '');
   };
 
   const handleSavePin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUserForPin) return;
 
+    if (!isDev) {
+      addToast('warning', 'Action Non Autorisée', 'Seul le rôle Développeur peut sauvegarder des modifications de PIN.');
+      return;
+    }
+
     if (!/^\d{4}$/.test(editPinInput)) {
-      addToast('warning', 'Format Invalide', 'Le code PIN doit comporter exactement 4 chiffres.');
+      addToast('warning', 'Format Invalide', 'Le code PIN doit comporter exactement 4 chiffres (0-9).');
       return;
     }
 
@@ -85,6 +116,10 @@ export default function DevView() {
   };
 
   const handleQuickGeneratePin = (userId: string) => {
+    if (!isDev) {
+      addToast('warning', 'Accès Refusé', 'Seul le Développeur a l\'autorisation de modifier les codes PIN.');
+      return;
+    }
     const randomPin = generateRandomPin();
     updateUserPin(userId, randomPin);
   };
@@ -108,6 +143,7 @@ export default function DevView() {
       name: newName.trim(),
       role: newRole,
       color_group: isGlobal ? null : newGroup,
+      pinCode: assignedPin,
       pin: assignedPin,
     });
 
@@ -120,13 +156,13 @@ export default function DevView() {
     return <LeaderboardView />;
   }
 
-  // Sub-tabs navigation bar for Dev portal
+  // Sub-tabs navigation bar for Dev portal (horizontally scrollable on mobile)
   const renderDevSubTabs = () => (
-    <div className="bg-zinc-200/70 p-1 rounded-xl flex items-center gap-1 max-w-xl mx-auto sm:mx-0 shadow-2xs mb-4">
+    <div className="bg-zinc-200/70 p-1 rounded-xl flex items-center gap-1 max-w-full overflow-x-auto whitespace-nowrap scrollbar-none shadow-2xs mb-4">
       <button
         type="button"
         onClick={() => setActiveTab('Users')}
-        className={`flex-1 py-2 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+        className={`shrink-0 py-2.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer min-h-[40px] ${
           activeTab === 'Users' || activeTab === 'Utilisateurs'
             ? 'bg-white text-zinc-900 shadow-2xs'
             : 'text-zinc-600 hover:text-zinc-900'
@@ -139,7 +175,7 @@ export default function DevView() {
       <button
         type="button"
         onClick={() => setActiveTab('PINs')}
-        className={`flex-1 py-2 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+        className={`shrink-0 py-2.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer min-h-[40px] ${
           activeTab === 'PINs' || activeTab === 'Gestion des PINs'
             ? 'bg-white text-zinc-900 shadow-2xs'
             : 'text-zinc-600 hover:text-zinc-900'
@@ -152,7 +188,7 @@ export default function DevView() {
       <button
         type="button"
         onClick={() => setActiveTab('Logs')}
-        className={`flex-1 py-2 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+        className={`shrink-0 py-2.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer min-h-[40px] ${
           activeTab === 'Logs' || activeTab === 'Journaux' || activeTab === 'Journaux & Télémétrie'
             ? 'bg-white text-zinc-900 shadow-2xs'
             : 'text-zinc-600 hover:text-zinc-900'
@@ -164,11 +200,127 @@ export default function DevView() {
     </div>
   );
 
+  // Edit PIN Modal component used across views
+  const renderEditPinModal = () => {
+    if (!selectedUserForPin || !isDev) return null;
+
+    const isTargetDev = selectedUserForPin.role === 'Dev';
+    const isValidPin = /^\d{4}$/.test(editPinInput);
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <div className="bg-white rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-zinc-200/90 animate-in slide-in-from-bottom duration-200">
+          <div className="w-12 h-1 bg-zinc-300 rounded-full mx-auto mb-3 sm:hidden" />
+          
+          <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center font-bold">
+                <KeyRound size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-zinc-900">
+                  {isTargetDev ? 'Éditer le Code PIN Maître' : 'Éditer le Code PIN'}
+                </h3>
+                <p className="text-[11px] text-zinc-500">
+                  Compte : <strong className="text-zinc-800">{selectedUserForPin.name}</strong> ({getRoleLabel(selectedUserForPin.role)})
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <form onSubmit={handleSavePin} className="space-y-4 pt-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                Nouveau Code PIN (exactement 4 chiffres)
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  maxLength={4}
+                  pattern="[0-9]{4}"
+                  required
+                  value={editPinInput}
+                  onChange={e => setEditPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="Ex: 1926"
+                  autoFocus
+                  className="flex-1 px-3 py-2.5 text-center font-mono font-bold text-xl tracking-widest rounded-xl border border-zinc-300 focus:ring-2 focus:ring-zinc-900 focus:outline-none bg-zinc-50 focus:bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setEditPinInput(generateRandomPin())}
+                  className="px-3 py-2.5 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border border-zinc-200 flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Shuffle size={13} />
+                  <span>Générer</span>
+                </button>
+              </div>
+              <p className="text-[10px] text-zinc-400 mt-1.5 flex items-center justify-between">
+                <span>Le code doit comporter 4 chiffres numériques.</span>
+                <span className={`font-mono font-semibold ${isValidPin ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  {editPinInput.length}/4 chiffres
+                </span>
+              </p>
+            </div>
+
+            {isTargetDev && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 flex items-center justify-between">
+                <div>
+                  <span className="font-semibold block">PIN Maître par défaut : 1926</span>
+                  <span className="text-[10px] text-amber-700">Vous pouvez personnaliser votre propre PIN ou restaurer 1926.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditPinInput('1926')}
+                  className="px-2.5 py-1 rounded-lg bg-amber-200 hover:bg-amber-300 font-semibold text-[10px] text-amber-950 transition-colors cursor-pointer shrink-0 ml-2"
+                >
+                  Appliquer 1926
+                </button>
+              </div>
+            )}
+
+            <div className="pt-2 flex items-center justify-end gap-2 border-t border-zinc-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedUserForPin(null);
+                  setEditPinInput('');
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-medium text-zinc-600 hover:bg-zinc-100 cursor-pointer"
+              >
+                Annuler
+              </button>
+              <button
+                type="submit"
+                disabled={!isValidPin}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-white shadow-2xs transition-all cursor-pointer disabled:opacity-40"
+              >
+                Sauvegarder
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
   // 1. PIN Management Panel (Dedicated Dev Security View)
   if (activeTab === 'PINs' || activeTab === 'Gestion des PINs' || activeTab === 'Sécurité') {
     return (
       <div className="p-3.5 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-4 sm:space-y-6 pb-24 md:pb-8 animate-in fade-in duration-200">
         {renderDevSubTabs()}
+
+        {/* Non-Dev Warning Guard */}
+        {!isDev && (
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-900 flex items-start gap-3 shadow-2xs">
+            <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-800">Mode Lecture Seule • Contrôle Réservé au Développeur</h4>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Vous êtes actuellement connecté en tant que <strong>{currentUser.name}</strong> ({getRoleLabel(currentUser.role)}). Seul le profil Développeur dispose des autorisations pour attribuer, régénérer ou réinitialiser les codes PIN des comptes.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Header Ribbon */}
         <div className="bg-white rounded-xl border border-zinc-200/90 p-4 sm:p-6 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -231,9 +383,10 @@ export default function DevView() {
           </div>
         </div>
 
-        {/* Users PIN Table */}
+        {/* Users PIN Management: Desktop Table / Mobile Cards */}
         <div className="bg-white rounded-xl shadow-2xs border border-zinc-200/90 overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-zinc-50 border-b border-zinc-200/80 text-zinc-500 font-semibold uppercase tracking-wider text-[10px]">
                 <tr>
@@ -248,6 +401,7 @@ export default function DevView() {
                 {users.map(user => {
                   const isDevMaster = user.role === 'Dev';
                   const isVisible = showAllPins || revealedPins[user.id];
+                  const displayPin = user.pinCode || user.pin || '----';
 
                   return (
                     <tr key={user.id} className="hover:bg-zinc-50/60 transition-colors">
@@ -280,7 +434,7 @@ export default function DevView() {
                       <td className="px-4 py-3 text-center">
                         <div className="inline-flex items-center gap-2 bg-zinc-100/90 border border-zinc-200 px-3 py-1 rounded-lg">
                           <span className="font-mono font-bold text-xs text-zinc-900 tracking-widest min-w-[48px] text-center">
-                            {isVisible ? user.pin : '••••'}
+                            {isVisible ? displayPin : '••••'}
                           </span>
                           <button
                             type="button"
@@ -298,23 +452,27 @@ export default function DevView() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenPinModal(user)}
-                            className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-zinc-900 hover:bg-zinc-800 text-white shadow-2xs transition-all cursor-pointer active:scale-95"
-                          >
-                            Éditer le Code PIN
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleQuickGeneratePin(user.id)}
-                            title="Générer un nouveau PIN aléatoire"
-                            className="p-1.5 rounded-lg text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 border border-zinc-200 transition-colors cursor-pointer"
-                          >
-                            <Shuffle size={13} />
-                          </button>
-                        </div>
+                        {isDev ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenPinModal(user)}
+                              className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-zinc-900 hover:bg-zinc-800 text-white shadow-2xs transition-all cursor-pointer active:scale-95"
+                            >
+                              Éditer le Code PIN
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleQuickGeneratePin(user.id)}
+                              title="Générer un nouveau PIN aléatoire"
+                              className="p-1.5 rounded-lg text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 border border-zinc-200 transition-colors cursor-pointer"
+                            >
+                              <Shuffle size={13} />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-zinc-400 italic">Verrouillé (Dev Uniquement)</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -322,89 +480,106 @@ export default function DevView() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Stacked Card View */}
+          <div className="md:hidden divide-y divide-zinc-200/70">
+            {users.map(user => {
+              const isDevMaster = user.role === 'Dev';
+              const isVisible = showAllPins || revealedPins[user.id];
+              const displayPin = user.pinCode || user.pin || '----';
+
+              return (
+                <div key={user.id} className="p-4 space-y-3 bg-white">
+                  {/* Header line: User Name (bold) + Role Badge + Color Group Pill */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold flex items-center justify-center text-xs shrink-0">
+                        {user.name.split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-zinc-900 text-sm truncate">{user.name}</h4>
+                        <span className="text-[10px] text-zinc-400 font-mono block">{user.id}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${getRoleClasses(user.role)}`}>
+                        {getRoleLabel(user.role)}
+                      </span>
+                      {user.color_group ? (
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-medium border ${getColorGroupClasses(user.color_group)}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${getColorGroupDot(user.color_group)}`} />
+                          Groupe {getColorGroupLabel(user.color_group)}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-400 text-[10px] italic">Global</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Body: Access Scope summary & PIN status */}
+                  <div className="bg-zinc-50 p-2.5 rounded-xl border border-zinc-200/70 space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-zinc-500 text-[11px]">Périmètre d'accès :</span>
+                      <span className="font-medium text-zinc-800 text-[11px]">
+                        {user.role === 'Dev' ? 'Système & BDD' :
+                         user.role === 'Admin' ? 'Accès Global (4 Gr.)' :
+                         `Groupe ${getColorGroupLabel(user.color_group)}`}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1.5 border-t border-zinc-200/60">
+                      <span className="text-zinc-500 text-[11px]">Statut Code PIN :</span>
+                      <div className="inline-flex items-center gap-2 bg-white border border-zinc-200 px-2.5 py-1 rounded-lg">
+                        <span className="font-mono font-bold text-xs text-zinc-900 tracking-widest min-w-[40px] text-center">
+                          {isVisible ? displayPin : '••••'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => togglePinVisibility(user.id)}
+                          className="text-zinc-400 hover:text-zinc-800 p-0.5 cursor-pointer"
+                          aria-label={isVisible ? 'Masquer' : 'Afficher le PIN'}
+                        >
+                          {isVisible ? <EyeOff size={13} /> : <Eye size={13} />}
+                        </button>
+                        {isDevMaster && (
+                          <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1 py-0.2 rounded">
+                            Master
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer Action: Prominent "Éditer le PIN" with touch padding */}
+                  {isDev && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenPinModal(user)}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-3 px-4 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-semibold shadow-2xs transition-all cursor-pointer active:scale-98 min-h-[44px]"
+                      >
+                        <KeyRound size={14} className="text-amber-400" />
+                        <span>Éditer le PIN</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickGeneratePin(user.id)}
+                        title="Générer un nouveau PIN aléatoire"
+                        className="p-3 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl border border-zinc-200/80 transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+                        aria-label="Générer PIN aléatoire"
+                      >
+                        <Shuffle size={15} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Edit PIN Modal */}
-        {selectedUserForPin && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-zinc-950/60 backdrop-blur-xs animate-in fade-in duration-150">
-            <div className="bg-white rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 max-w-md w-full shadow-2xl border border-zinc-200/90 animate-in slide-in-from-bottom duration-200">
-              <div className="w-12 h-1 bg-zinc-300 rounded-full mx-auto mb-3 sm:hidden" />
-              
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center font-bold">
-                    <KeyRound size={16} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-zinc-900">Éditer le Code PIN</h3>
-                    <p className="text-[11px] text-zinc-500">Pour : {selectedUserForPin.name} ({getRoleLabel(selectedUserForPin.role)})</p>
-                  </div>
-                </div>
-              </div>
-
-              <form onSubmit={handleSavePin} className="space-y-4 pt-4">
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-700 mb-1">
-                    Nouveau Code PIN (4 chiffres)
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      maxLength={4}
-                      pattern="[0-9]{4}"
-                      required
-                      value={editPinInput}
-                      onChange={e => setEditPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                      placeholder="Ex: 1926"
-                      className="flex-1 px-3 py-2 text-center font-mono font-bold text-lg tracking-widest rounded-xl border border-zinc-300 focus:ring-1 focus:ring-zinc-900 focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setEditPinInput(generateRandomPin())}
-                      className="px-3 py-2 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border border-zinc-200 flex items-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <Shuffle size={13} />
-                      <span>Générer</span>
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-zinc-400 mt-1">
-                    Entrez exactement 4 chiffres décimaux (0-9).
-                  </p>
-                </div>
-
-                {selectedUserForPin.role === 'Dev' && (
-                  <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 flex items-center justify-between">
-                    <span>PIN Maître recommandé : <strong>1926</strong></span>
-                    <button
-                      type="button"
-                      onClick={() => setEditPinInput('1926')}
-                      className="px-2 py-0.5 rounded bg-amber-200 hover:bg-amber-300 font-semibold text-[10px] transition-colors cursor-pointer"
-                    >
-                      Appliquer 1926
-                    </button>
-                  </div>
-                )}
-
-                <div className="pt-2 flex items-center justify-end gap-2 border-t border-zinc-100">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedUserForPin(null)}
-                    className="px-3.5 py-2 rounded-xl text-xs font-medium text-zinc-600 hover:bg-zinc-100 cursor-pointer"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={editPinInput.length !== 4}
-                    className="px-4 py-2 rounded-xl text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 text-white shadow-2xs transition-all cursor-pointer disabled:opacity-40"
-                  >
-                    Enregistrer le PIN
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        {renderEditPinModal()}
       </div>
     );
   }
@@ -435,50 +610,156 @@ export default function DevView() {
         </div>
 
         <div className="bg-white rounded-xl shadow-2xs border border-zinc-200/90 overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-zinc-50 border-b border-zinc-200/80 text-zinc-500 font-semibold uppercase tracking-wider text-[10px]">
                 <tr>
                   <th className="px-4 py-3">Nom</th>
                   <th className="px-4 py-3">Rôle</th>
                   <th className="px-4 py-3">Groupe de Couleur</th>
-                  <th className="px-4 py-3 text-center">PIN Actuel</th>
+                  <th className="px-4 py-3 text-center">Code PIN</th>
                   <th className="px-4 py-3">Périmètre d'Accès</th>
+                  <th className="px-4 py-3 text-right">Action PIN</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200/70">
-                {users.map(user => (
-                  <tr key={user.id} className="hover:bg-zinc-50/60 transition-colors">
-                    <td className="px-4 py-3 font-semibold text-zinc-900">{user.name}</td>
-                    <td className="px-4 py-3">
+                {users.map(user => {
+                  const isVisible = showAllPins || revealedPins[user.id];
+                  const displayPin = user.pinCode || user.pin || '----';
+
+                  return (
+                    <tr key={user.id} className="hover:bg-zinc-50/60 transition-colors">
+                      <td className="px-4 py-3 font-semibold text-zinc-900">{user.name}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${getRoleClasses(user.role)}`}>
+                          {getRoleLabel(user.role)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {user.color_group ? (
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border ${getColorGroupClasses(user.color_group)}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${getColorGroupDot(user.color_group)}`} />
+                            Groupe {getColorGroupLabel(user.color_group)}
+                          </span>
+                        ) : (
+                          <span className="text-zinc-400 italic text-[11px]">Global (Aucun)</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center font-mono font-bold text-zinc-800">
+                        <div className="inline-flex items-center gap-1.5 bg-zinc-100 px-2 py-0.5 rounded text-xs">
+                          <span>{isVisible ? displayPin : '••••'}</span>
+                          <button
+                            type="button"
+                            onClick={() => togglePinVisibility(user.id)}
+                            className="text-zinc-400 hover:text-zinc-700 cursor-pointer"
+                          >
+                            {isVisible ? <EyeOff size={11} /> : <Eye size={11} />}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-[11px] text-zinc-600 font-medium">
+                        {user.role === 'Dev' ? 'Système Complet & Maintenance BDD' :
+                         user.role === 'Admin' ? 'Accès Global aux 4 Groupes' :
+                         `Assigné au Groupe ${getColorGroupLabel(user.color_group)}`}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {isDev ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPinModal(user)}
+                            className="px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-200 transition-all cursor-pointer"
+                          >
+                            Éditer le PIN
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-zinc-400 italic">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Stacked Cards View */}
+          <div className="md:hidden divide-y divide-zinc-200/70">
+            {users.map(user => {
+              const isVisible = showAllPins || revealedPins[user.id];
+              const displayPin = user.pinCode || user.pin || '----';
+
+              return (
+                <div key={user.id} className="p-4 space-y-3 bg-white">
+                  {/* Header line: User Name (bold) + Role Badge + Color Group Pill */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="font-bold text-zinc-900 text-sm">{user.name}</h4>
+                      <span className="text-[10px] text-zinc-400 font-mono">{user.id}</span>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1 shrink-0">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${getRoleClasses(user.role)}`}>
                         {getRoleLabel(user.role)}
                       </span>
-                    </td>
-                    <td className="px-4 py-3">
                       {user.color_group ? (
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border ${getColorGroupClasses(user.color_group)}`}>
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-medium border ${getColorGroupClasses(user.color_group)}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${getColorGroupDot(user.color_group)}`} />
                           Groupe {getColorGroupLabel(user.color_group)}
                         </span>
                       ) : (
-                        <span className="text-zinc-400 italic text-[11px]">Global (Aucun)</span>
+                        <span className="text-zinc-400 text-[10px] italic">Global</span>
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-center font-mono font-bold text-zinc-800">
-                      ••••
-                    </td>
-                    <td className="px-4 py-3 text-[11px] text-zinc-600 font-medium">
-                      {user.role === 'Dev' ? 'Système Complet & Maintenance BDD' :
-                       user.role === 'Admin' ? 'Accès Global aux 4 Groupes' :
-                       `Assigné au Groupe ${getColorGroupLabel(user.color_group)}`}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  </div>
+
+                  {/* Body: Access Scope summary and PIN Status */}
+                  <div className="bg-zinc-50 p-2.5 rounded-xl border border-zinc-200/70 space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-zinc-500 text-[11px]">Périmètre :</span>
+                      <span className="font-medium text-zinc-800 text-[11px]">
+                        {user.role === 'Dev' ? 'Système Complet & Maintenance' :
+                         user.role === 'Admin' ? 'Accès Global (4 Groupes)' :
+                         `Assigné au Groupe ${getColorGroupLabel(user.color_group)}`}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1.5 border-t border-zinc-200/60">
+                      <span className="text-zinc-500 text-[11px]">Code PIN (4 chiffres) :</span>
+                      <div className="inline-flex items-center gap-2 bg-white border border-zinc-200 px-2.5 py-1 rounded-lg">
+                        <span className="font-mono font-bold text-xs text-zinc-900 tracking-widest min-w-[40px] text-center">
+                          {isVisible ? displayPin : '••••'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => togglePinVisibility(user.id)}
+                          className="text-zinc-400 hover:text-zinc-800 p-0.5 cursor-pointer"
+                          aria-label={isVisible ? 'Masquer' : 'Afficher le PIN'}
+                        >
+                          {isVisible ? <EyeOff size={13} /> : <Eye size={13} />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer Action: Full-width "Éditer le PIN" with touch padding */}
+                  {isDev && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenPinModal(user)}
+                      className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-semibold shadow-2xs transition-all cursor-pointer active:scale-98 min-h-[44px]"
+                    >
+                      <KeyRound size={14} className="text-amber-400" />
+                      <span>Éditer le PIN</span>
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
+
+        {renderEditPinModal()}
 
         {/* Add User Modal */}
         {isAddUserOpen && (

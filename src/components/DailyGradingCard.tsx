@@ -14,11 +14,10 @@ import {
   BookOpen, 
   Clock, 
   Heart, 
-  Scroll, 
   Sparkle, 
-  Sparkles as ScarfIcon,
   Users as UsersIcon,
-  ShieldAlert
+  ShieldCheck,
+  Award
 } from 'lucide-react';
 
 interface DailyGradingCardProps {
@@ -71,6 +70,8 @@ export default function DailyGradingCard({ child, date, isExpandedDefault = true
     scarf,
     visitors_count: visitorsCount,
   });
+
+  const percentageOfDailyMax = Math.min(100, Math.round((livePoints / 250) * 100));
 
   // Auto-save helper that writes to context
   const triggerAutoSave = useCallback((updates: Partial<DailyGrading>) => {
@@ -134,18 +135,12 @@ export default function DailyGradingCard({ child, date, isExpandedDefault = true
     addToast('info', `${child.first_name} ${child.last_name}`, 'Marqué comme Absent pour cette séance.');
   };
 
-  const handleSave = () => {
-    triggerAutoSave({});
-    addToast('success', 'Enregistré', `Fiche de ${child.first_name} enregistrée avec succès.`);
-  };
-
   // Toggle presence directly
   const handleTogglePresence = (e: React.MouseEvent) => {
     e.stopPropagation();
     const newPresence = !presence;
     setPresence(newPresence);
     if (!newPresence) {
-      // If absent, reset other criteria
       setPunctuality(false);
       setGoodBehavior(false);
       setVerseOfTheDay(false);
@@ -250,81 +245,89 @@ export default function DailyGradingCard({ child, date, isExpandedDefault = true
 
   return (
     <div 
-      className={`bg-white rounded-xl border transition-all duration-150 shadow-2xs overflow-hidden ${
+      className={`bg-white rounded-2xl border transition-all duration-200 shadow-sm overflow-hidden ${
         !presence 
-          ? 'border-zinc-200 bg-zinc-50/50 opacity-80' 
-          : isSaved ? 'border-zinc-200/90 hover:border-zinc-300' : 'border-amber-300 ring-1 ring-amber-300'
+          ? 'border-zinc-200/80 bg-zinc-50/70 opacity-80' 
+          : isSaved 
+            ? 'border-zinc-200/90 hover:border-zinc-300 hover:shadow-md' 
+            : 'border-amber-300 ring-2 ring-amber-300/40'
       }`}
     >
       {/* Header / Main Touch Bar */}
       <div 
         onClick={() => setIsExpanded(!isExpanded)}
-        className="p-3 sm:p-4 flex items-center justify-between gap-2.5 select-none cursor-pointer bg-white active:bg-zinc-50/80 transition-colors"
+        className="p-3.5 sm:p-4 flex items-center justify-between gap-3 select-none cursor-pointer bg-white hover:bg-zinc-50/50 active:bg-zinc-100/70 transition-colors"
       >
         {/* Left child info */}
-        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
-          {/* Avatar with Presence Indicator */}
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          {/* Avatar with Presence Status */}
           <div className="relative shrink-0">
-            <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-xs font-bold transition-all ${
+            <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center text-xs sm:text-sm font-bold transition-all shadow-inner ${
               presence 
-                ? 'bg-zinc-900 text-zinc-100 shadow-2xs' 
+                ? 'bg-gradient-to-b from-zinc-800 to-zinc-950 text-white' 
                 : 'bg-zinc-200 text-zinc-500'
             }`}>
               {child.first_name[0]}{child.last_name[0]}
             </div>
-            <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
-              presence ? 'bg-emerald-500' : 'bg-zinc-300'
+            <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white transition-colors ${
+              presence ? 'bg-emerald-500 shadow-[0_0_6px_#10b981]' : 'bg-zinc-300'
             }`} />
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-bold text-zinc-900 text-xs sm:text-sm truncate">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-display font-bold text-zinc-900 text-sm sm:text-base tracking-tight truncate">
                 {child.first_name} {child.last_name}
               </span>
-              <span className={`text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded font-medium border ${getRankBadgeClasses(child.current_rank)}`}>
+              <span className={`text-[10px] px-2 py-0.5 rounded-md font-semibold tracking-wide border shadow-2xs ${getRankBadgeClasses(child.current_rank)}`}>
                 {getRankDisplay(child.current_rank)}
               </span>
               {child.status === 'Recruit' && (
-                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 font-semibold border border-amber-200/80 shadow-2xs">
                   Recrue
                 </span>
               )}
             </div>
 
-            <div className="text-[10px] sm:text-[11px] text-zinc-500 flex items-center gap-2 mt-0.5">
-              <span>Total : <strong className="font-mono text-zinc-800">{child.total_accumulated_points} pts</strong></span>
-              <span>•</span>
+            <div className="text-[11px] text-zinc-500 flex items-center gap-2.5 mt-0.5">
+              <span>Cumul : <strong className="font-mono text-zinc-800 font-bold">{child.total_accumulated_points} pts</strong></span>
+              <span className="text-zinc-300">•</span>
               <button
                 type="button"
                 onClick={handleTogglePresence}
-                className={`px-1.5 py-0.2 rounded font-semibold text-[10px] transition-colors cursor-pointer ${
+                className={`px-2 py-0.5 rounded-full font-bold text-[10px] transition-all cursor-pointer shadow-2xs ${
                   presence 
-                    ? 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100' 
-                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100' 
+                    : 'bg-zinc-100 text-zinc-600 border border-zinc-200 hover:bg-zinc-200'
                 }`}
               >
-                {presence ? '✓ Présent' : '✗ Absent'}
+                {presence ? '✓ Présent(e)' : '✗ Absent(e)'}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Right: Live Points Counter & Expand Icon */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Right: Live Points Dial & Expand Icon */}
+        <div className="flex items-center gap-3 shrink-0">
           <div className="text-right">
-            <span className="text-[9px] text-zinc-400 font-medium uppercase tracking-wider block">Aujourd'hui</span>
-            <div className="flex items-baseline gap-0.5 justify-end">
-              <span className={`font-mono text-sm sm:text-base font-bold ${
-                livePoints >= 200 ? 'text-emerald-700' : livePoints > 0 ? 'text-zinc-900' : 'text-zinc-400'
+            <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider block">Séance du jour</span>
+            <div className="flex items-baseline gap-1 justify-end">
+              <span className={`font-mono font-extrabold text-base sm:text-lg tracking-tight ${
+                livePoints >= 250 
+                  ? 'text-amber-600 drop-shadow-[0_0_8px_rgba(245,158,11,0.2)]' 
+                  : livePoints >= 180 
+                    ? 'text-emerald-700' 
+                    : livePoints > 0 
+                      ? 'text-zinc-900' 
+                      : 'text-zinc-400'
               }`}>
                 +{livePoints}
               </span>
-              <span className="text-[9px] text-zinc-400 font-medium">pts</span>
+              <span className="text-[10px] text-zinc-400 font-semibold">pts</span>
             </div>
           </div>
 
-          <div className="p-1 rounded-md text-zinc-400 group-hover:text-zinc-700 transition-colors">
+          <div className="w-8 h-8 rounded-xl bg-zinc-100 hover:bg-zinc-200 flex items-center justify-center text-zinc-500 transition-colors">
             {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
           </div>
         </div>
@@ -332,68 +335,92 @@ export default function DailyGradingCard({ child, date, isExpandedDefault = true
 
       {/* Expanded Touch-Friendly Checklist & Presets */}
       {isExpanded && (
-        <div className="p-3 sm:p-4 pt-2 border-t border-zinc-100 bg-zinc-50/40 space-y-3 animate-in fade-in duration-150">
+        <div className="p-4 pt-3 border-t border-zinc-100 bg-zinc-50/50 space-y-3.5 animate-in fade-in duration-150">
           
-          {/* Quick Presets Bar */}
-          <div className="flex items-center justify-between text-[11px] pb-1 border-b border-zinc-200/60">
-            <span className="font-semibold text-zinc-500 text-[10px] uppercase tracking-wider">
-              8 Critères (250 pts max)
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleQuickFull}
-                className="px-2.5 py-1 rounded-md bg-zinc-900 hover:bg-zinc-800 text-white font-medium text-[10px] flex items-center gap-1 cursor-pointer transition-all active:scale-[0.97] shadow-2xs"
-              >
-                <Sparkles size={11} className="text-amber-400" />
-                <span>Jour Parfait (250 pts)</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleQuickAbsent}
-                className="px-2 py-1 rounded-md bg-zinc-100 hover:bg-zinc-200 text-zinc-600 font-medium text-[10px] cursor-pointer transition-all active:scale-[0.97]"
-              >
-                Absent
-              </button>
+          {/* Quick Presets Bar & 250 pts Live Progress Gauge */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-[11px]">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-zinc-500 text-[10px] uppercase tracking-wider">
+                  8 Critères d'Excellence
+                </span>
+                <span className="font-mono text-[10px] font-bold px-1.5 py-0.2 rounded bg-zinc-200/80 text-zinc-700">
+                  {percentageOfDailyMax}% du max
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleQuickFull}
+                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-zinc-900 to-zinc-800 hover:from-zinc-800 hover:to-zinc-700 text-white font-semibold text-[11px] flex items-center gap-1.5 cursor-pointer transition-all active:scale-[0.97] shadow-sm glow-amber-subtle"
+                >
+                  <Sparkles size={13} className="text-amber-400" />
+                  <span>Jour Parfait (250 pts)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleQuickAbsent}
+                  className="px-2.5 py-1.5 rounded-xl bg-zinc-200/80 hover:bg-zinc-300 text-zinc-700 font-semibold text-[11px] cursor-pointer transition-all active:scale-[0.97]"
+                >
+                  Absent
+                </button>
+              </div>
+            </div>
+
+            {/* Visual Progress Bar to 250 pts */}
+            <div className="w-full h-1.5 bg-zinc-200 rounded-full overflow-hidden">
+              <div 
+                className={`h-full rounded-full transition-all duration-300 ${
+                  percentageOfDailyMax >= 100 
+                    ? 'bg-gradient-to-r from-amber-500 to-amber-400 shadow-[0_0_8px_#fbbf24]' 
+                    : percentageOfDailyMax >= 70 
+                      ? 'bg-emerald-500' 
+                      : 'bg-zinc-800'
+                }`}
+                style={{ width: `${percentageOfDailyMax}%` }}
+              />
             </div>
           </div>
 
-          {/* 7 Individual Criteria Touch Buttons (min 44px height for mobile ease) */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {/* 7 Individual Criteria Touch Buttons (48px min height for touch precision) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {criteriaList.map((c) => (
               <button
                 key={c.key}
                 type="button"
                 onClick={c.toggle}
-                className={`min-h-[46px] p-2.5 rounded-xl border text-left flex items-center justify-between transition-all duration-100 cursor-pointer active:scale-[0.97] ${
+                className={`min-h-[48px] p-3 rounded-xl border text-left flex items-center justify-between transition-all duration-150 cursor-pointer active:scale-[0.97] ${
                   c.value
-                    ? 'bg-zinc-900 border-zinc-800 text-white shadow-2xs'
-                    : 'bg-white border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50/80'
+                    ? 'bg-zinc-950 border-zinc-850 text-white shadow-sm ring-1 ring-white/10'
+                    : 'bg-white border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50'
                 }`}
               >
-                <div className="min-w-0 pr-1">
-                  <p className="text-xs font-semibold truncate leading-tight">{c.label}</p>
-                  <p className={`text-[10px] font-mono mt-0.5 ${c.value ? 'text-zinc-300' : 'text-zinc-500'}`}>
+                <div className="min-w-0 pr-1.5">
+                  <p className="text-xs font-bold truncate leading-tight">{c.label}</p>
+                  <p className={`text-[10px] font-mono font-semibold mt-0.5 ${c.value ? 'text-amber-400' : 'text-zinc-500'}`}>
                     +{c.pts} pts
                   </p>
                 </div>
-                <div className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] shrink-0 ${
-                  c.value ? 'bg-white text-zinc-950 font-bold' : 'border border-zinc-300 bg-zinc-50'
+                <div className={`w-5 h-5 rounded-lg flex items-center justify-center text-[10px] shrink-0 transition-transform ${
+                  c.value 
+                    ? 'bg-amber-400 text-zinc-950 font-black shadow-xs scale-105' 
+                    : 'border border-zinc-300 bg-zinc-50 text-transparent'
                 }`}>
-                  {c.value && <Check size={13} strokeWidth={3} />}
+                  <Check size={12} strokeWidth={3.5} />
                 </div>
               </button>
             ))}
 
             {/* 8. Visitors Touch Stepper */}
-            <div className="min-h-[46px] p-2.5 rounded-xl border border-zinc-200 bg-white flex items-center justify-between">
+            <div className="min-h-[48px] p-3 rounded-xl border border-zinc-200 bg-white flex items-center justify-between shadow-2xs">
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-zinc-900 truncate leading-tight">Visiteurs</p>
-                <p className="text-[10px] font-mono text-zinc-500">+{VISITOR_POINTS} pts/invité</p>
+                <p className="text-xs font-bold text-zinc-900 truncate leading-tight">Visiteurs</p>
+                <p className="text-[10px] font-mono font-semibold text-emerald-600">+{VISITOR_POINTS} pts / ami</p>
               </div>
 
-              {/* Large Stepper Buttons */}
-              <div className="flex items-center gap-1 shrink-0 ml-1">
+              {/* Large Stepper Controls */}
+              <div className="flex items-center gap-1.5 shrink-0 ml-1">
                 <button
                   type="button"
                   onClick={() => {
@@ -401,12 +428,12 @@ export default function DailyGradingCard({ child, date, isExpandedDefault = true
                     setVisitorsCount(next);
                     triggerAutoSave({ visitors_count: next });
                   }}
-                  className="w-8 h-8 rounded-lg bg-zinc-100 active:bg-zinc-200 border border-zinc-200 flex items-center justify-center text-zinc-700 cursor-pointer active:scale-95"
+                  className="w-8 h-8 rounded-lg bg-zinc-100 active:bg-zinc-200 border border-zinc-200 flex items-center justify-center text-zinc-700 cursor-pointer active:scale-95 transition-transform"
                   aria-label="Diminuer les visiteurs"
                 >
                   <Minus size={13} />
                 </button>
-                <span className="font-mono text-xs font-bold text-zinc-900 w-5 text-center">
+                <span className="font-mono text-xs font-extrabold text-zinc-900 w-5 text-center">
                   {visitorsCount}
                 </span>
                 <button
@@ -416,7 +443,7 @@ export default function DailyGradingCard({ child, date, isExpandedDefault = true
                     setVisitorsCount(next);
                     triggerAutoSave({ visitors_count: next });
                   }}
-                  className="w-8 h-8 rounded-lg bg-zinc-900 active:bg-zinc-800 text-white flex items-center justify-center cursor-pointer active:scale-95 shadow-2xs"
+                  className="w-8 h-8 rounded-lg bg-zinc-900 active:bg-zinc-800 text-white flex items-center justify-center cursor-pointer active:scale-95 shadow-xs transition-transform"
                   aria-label="Ajouter un visiteur"
                 >
                   <Plus size={13} />
@@ -426,13 +453,13 @@ export default function DailyGradingCard({ child, date, isExpandedDefault = true
           </div>
 
           {/* Footer Auto-save feedback */}
-          <div className="flex items-center justify-between text-[10px] text-zinc-500 pt-1">
-            <span className="flex items-center gap-1">
-              <CheckCircle2 size={12} className="text-emerald-600" />
-              <span>Modifications enregistrées automatiquement</span>
+          <div className="flex items-center justify-between text-[11px] text-zinc-500 pt-1">
+            <span className="flex items-center gap-1.5 font-medium">
+              <CheckCircle2 size={13} className="text-emerald-600" />
+              <span>Notation enregistrée automatiquement</span>
             </span>
-            <span className="font-mono font-bold text-zinc-800">
-              Total séance : +{livePoints} pts
+            <span className="font-mono font-bold text-zinc-900">
+              Total séance : <span className="text-emerald-700">+{livePoints} pts</span>
             </span>
           </div>
         </div>

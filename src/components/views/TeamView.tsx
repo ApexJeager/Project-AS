@@ -276,7 +276,8 @@ export default function TeamView() {
 
         {/* Children Cards for Mobile / Table for Desktop */}
         <div className="bg-white rounded-xl shadow-2xs border border-zinc-200/90 overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-zinc-50/80 text-zinc-500 uppercase tracking-wider font-semibold text-[10px] border-b border-zinc-200/80">
                 <tr>
@@ -373,6 +374,95 @@ export default function TeamView() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Stacked Card View */}
+          <div className="md:hidden divide-y divide-zinc-200/70">
+            {filteredRoster.length === 0 ? (
+              <div className="p-8 text-center text-zinc-400 text-xs italic">
+                Aucun enfant ne correspond à la recherche.
+              </div>
+            ) : (
+              filteredRoster.map(child => {
+                const { nextRank, isEligible, progressPercent } = getNextRankInfo(child);
+                return (
+                  <div key={child.id} className="p-4 space-y-3 bg-white">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-zinc-100 border border-zinc-200 text-zinc-800 font-bold flex items-center justify-center text-xs shrink-0">
+                          {child.first_name[0]}{child.last_name[0]}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-zinc-900 text-sm">
+                            {child.first_name} {child.last_name}
+                          </h4>
+                          <span className={`inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-medium border ${
+                            child.status === 'Recruit'
+                              ? 'bg-amber-50 text-amber-800 border-amber-200/80'
+                              : 'bg-emerald-50 text-emerald-800 border-emerald-200/80'
+                          } mt-0.5`}>
+                            {getStatusLabel(child.status)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-1">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${getRankBadgeClasses(child.current_rank)}`}>
+                          {getRankDisplay(child.current_rank)}
+                        </span>
+                        <span className="font-mono text-xs font-bold text-zinc-900">
+                          {child.total_accumulated_points} pts
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Progress */}
+                    {nextRank ? (
+                      <div className="space-y-1 bg-zinc-50 p-2.5 rounded-xl border border-zinc-200/70">
+                        <div className="flex items-center justify-between text-[10px] text-zinc-500">
+                          <span>Rang suivant: <strong className="text-zinc-800">{nextRank.title}</strong></span>
+                          <span className="font-mono font-bold text-zinc-700">{progressPercent}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-zinc-200 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full rounded-full transition-all ${isEligible ? 'bg-amber-500' : 'bg-zinc-800'}`}
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-amber-50/50 p-2 rounded-lg text-center text-[10px] font-medium text-amber-800 border border-amber-200/60">
+                        Palier Maximal Atteint
+                      </div>
+                    )}
+
+                    {/* Action buttons on mobile */}
+                    <div className="flex items-center gap-2 pt-1">
+                      {isEligible && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedChildForPromotion(child)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white shadow-2xs cursor-pointer transition-all active:scale-98 min-h-[44px]"
+                        >
+                          <Sparkles size={14} />
+                          <span>Promouvoir ({nextRank?.title})</span>
+                        </button>
+                      )}
+                      {child.status === 'Recruit' && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedChildForRecruit(child)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border border-zinc-200/80 cursor-pointer transition-all active:scale-98 min-h-[44px]"
+                        >
+                          <ShieldCheck size={14} />
+                          <span>Qualif ({child.qualification_progress?.consecutive_weeks || 0}/3)</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 

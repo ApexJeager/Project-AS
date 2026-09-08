@@ -47,7 +47,7 @@ export default function PinLockScreen() {
 
       // Auto submit upon 4th digit
       if (nextPin.length === 4) {
-        verifyPin(nextPin);
+        void verifyPin(nextPin);
       }
     }
   }, [pin, isSuccess, selectedUserId]);
@@ -66,8 +66,8 @@ export default function PinLockScreen() {
     setErrorMessage('');
   }, [isSuccess]);
 
-  const verifyPin = (pinToTest: string) => {
-    const result = unlockSession(selectedUserId, pinToTest);
+  const verifyPin = async (pinToTest: string) => {
+    const result = await unlockSession(selectedUserId, pinToTest);
     if (result.success) {
       setIsSuccess(true);
     } else {

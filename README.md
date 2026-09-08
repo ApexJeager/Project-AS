@@ -3,7 +3,7 @@
 Une application web d'excellence conçue sur mesure pour le **Ministère des Enfants Astronautes**, alliant rigueur pédagogique, notation quotidienne basée sur 8 critères officiels, qualification des recrues, matrice solennelle de 18 rangs bibliques, gouvernance par rôles (RBAC) sécurisée par code PIN, et assistant IA embarqué.
 
 ---
-> **Important — mode prototype :** les données de démonstration sont conservées localement dans le navigateur. Cette version ne fournit pas encore d’authentification serveur, de RBAC inviolable ni de sauvegarde multi-utilisateur. Ne pas utiliser avec des données personnelles réelles sans ajouter un backend sécurisé.
+> **Sécurité :** l'API utilise une session signée côté serveur, un RBAC serveur et des PIN hachés (scrypt). Définissez `DATABASE_URL` et `AUTH_SECRET` (obligatoire en production) avant tout déploiement avec des données réelles.
 
 ## 🌟 Points Clés & Fonctionnalités Majeures
 
@@ -48,6 +48,7 @@ Avant d'obtenir le statut d'**Astronaute Qualifié**, toute nouvelle recrue doit
 ---
 
 ### 4. 🏆 Matrice Officielle des 18 Rangs Bibliques
+Le rang initial **Recrue** (0 point) est suivi des 17 rangs de promotion définis dans `src/constants/ranks.ts`; cette liste constitue la source canonique utilisée par l'application.
 La progression se fait par cumul continu de points et examen solennel de récitation du verset de rang :
 
 1. **Recrue** (`0 pt`) — Entrée dans le ministère
@@ -119,6 +120,8 @@ npm install
 npm run dev
 \`\`\`
 L'application démarre immédiatement sur \`http://localhost:3000\`.
+
+Le serveur provisionne les tables nécessaires au premier démarrage. Les anciennes valeurs de PIN en clair sont hachées automatiquement et ne sont jamais renvoyées par l'API.
 
 ### 3. Compilation pour la production
 \`\`\`bash

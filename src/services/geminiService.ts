@@ -24,24 +24,24 @@ Voici les règles officielles absolues et la base de connaissances du programme 
 - Visiteurs amenés : 25 points bonus par nouvel ami / visiteur invité
 
 2. SYSTÈME DE PROMOTION ET LISTE DES 18 RANGS OFFICIELS AVEC VERSETS OBLIGATOIRES :
-1. Astronaute 3e classe (400 pts) : Jean 3:16-18
-2. Astronaute 2e classe (800 pts) : Romains 10:9,10,13
-3. Astronaute 1e classe (1300 pts) : 1 Jean 2:2-5
-4. Sergent (1800 pts) : Psaumes 23
-5. Sergent Chef (2300 pts) : Psaumes 1
-6. Adjudant (2900 pts) : Jean 14:6; Jean 8:24; Jean 10:12; Hébreux 7:25
-7. Adjudant Chef (3500 pts) : Ésaïe 12:2; Actes 4:12; 2 Corinthiens 6:2; Jean 1:12
-8. Sous-lieutenant (4000 pts) : Romains 8:37-39
-9. Lieutenant (4500 pts) : Ésaïe 53:1-6
-10. Capitaine (5100 pts) : Philippiens 2:5-11
-11. Major (5700 pts) : 2 Timothée 1:7-14
-12. Lieutenant-Colonel (6400 pts) : 1 Thessaloniciens 4:13-18
-13. Colonel (7100 pts) : Éphésiens 6:11-17
-14. Brigadier Général (7900 pts) : Jean 10:1-11
-15. Major Général (8800 pts) : Proverbes 3:1-10
-16. Lieutenant-Général (9700 pts) : Jean 1:1-14
-17. Général (10700 pts) : Psaumes 91
-18. Coupe de Timothée (12000 pts) : 1 Timothée 4:1-16
+Le rang initial est Recrue (0 pt). Les 17 rangs de promotion canoniques sont :
+2. Astronaute (500 pts) : 2 Timothée 2:16
+3. Apprenti (1000 pts) : Matthieu 6:33
+4. Sentinelle (1500 pts) : Ézéchiel 33:7
+5. Éclaireur (2000 pts) : Psaume 119:105
+6. Explorateur (2500 pts) : Josué 1:9
+7. Pionnier (3000 pts) : Ésaïe 43:19
+8. Navigateur (3500 pts) : Psaume 32:8
+9. Capitaine (4000 pts) : 1 Timothée 4:12
+10. Commandant (4500 pts) : Éphésiens 6:10
+11. Garde d'Honneur (5000 pts) : 1 Corinthiens 16:13
+12. Chevalier Céleste (5500 pts) : 2 Timothée 4:7
+13. Ambassadeur (6000 pts) : 2 Corinthiens 5:20
+14. Sentinelle Stellaire (6500 pts) : Daniel 12:3
+15. Légat Céleste (7000 pts) : Philippiens 3:20
+16. Maître de Mission (7500 pts) : Colossiens 3:23
+17. Grand Commandeur (8000 pts) : Romains 8:37
+18. Amiral Suprême (10000 pts) : Apocalypse 2:10
 
 3. CRITÈRES DE QUALIFICATION OFFICIELLE DES RECRUES (Passage de Recrue à Astronaute Qualifié) :
 Une recrue doit impérativement valider les 4 conditions suivantes :
@@ -81,20 +81,10 @@ export function generateLocalAssistantResponse(userPrompt: string): string {
 
   // 2. Rank & Verse queries
   if (query.includes('rang') || query.includes('verset') || query.includes('promotion') || query.includes('sergent') || query.includes('grade') || query.includes('classe') || query.includes('timothée') || query.includes('général')) {
-    if (query.includes('sergent chef')) {
-      return `🎖️ **Rang de Sergent Chef :**\n- **Points requis :** 2 300 points\n- **Verset de récitation :** **Psaumes 1**\n- *« Heureux l'homme qui ne marche pas selon le conseil des méchants... »*`;
-    }
-    if (query.includes('sergent')) {
-      return `🎖️ **Rang de Sergent :**\n- **Points requis :** 1 800 points\n- **Verset de récitation obligatoire :** **Psaumes 23**\n- *« L'Éternel est mon berger : je ne manquerai de rien... »*`;
-    }
-    if (query.includes('3e classe') || query.includes('troisieme classe')) {
-      return `🚀 **Rang d'Astronaute 3e classe :**\n- **Points requis :** 400 points\n- **Verset :** **Jean 3:16-18**\n- *« Car Dieu a tant aimé le monde qu'il a donné son Fils unique... »*`;
-    }
-    if (query.includes('timothée') || query.includes('coupe')) {
-      return `🏆 **Coupe de Timothée (Rang Suprême) :**\n- **Points requis :** 12 000 points\n- **Verset :** **1 Timothée 4:1-16**\n- *« Que personne ne méprise ta jeunesse; mais sois un modèle pour les fidèles... »*`;
-    }
-
-    const rankList = RANK_SYSTEM.map((r, i) => `${i + 1}. **${r.title}** (${r.points} pts) → *${r.verse}*`).join('\n');
+    const rankList = [
+      '1. **Recrue** (0 pt)',
+      ...RANK_SYSTEM.map((r, i) => `${i + 2}. **${r.title}** (${r.points} pts) → *${r.verse}*`),
+    ].join('\n');
     return `📜 **Tableau des 18 Rangs et Versets de Promotion :**\n\n${rankList}\n\n💡 Pour valider une promotion une fois le seuil de points atteint, le candidat doit réciter le passage biblique devant son Pilote ou l'Administrateur.`;
   }
 
@@ -109,7 +99,7 @@ export function generateLocalAssistantResponse(userPrompt: string): string {
   }
 
   // Default general assistant intro
-  return `Bonjour ! 🚀 Je suis l'**Assistant Virtuel Officiel des Astronautes**.\n\nJe peux vous aider sur :\n- 📊 **Le barème de points** (les 8 critères d'évaluation quotidienne)\n- 🎖️ **Les 18 rangs et versets de promotion** (de 3e classe à la Coupe de Timothée)\n- 🎯 **Les 4 critères de qualification des recrues**\n- 📝 **La rédaction des rapports mensuels de groupe**\n\n*Quelle est votre question aujourd'hui ?*`;
+  return `Bonjour ! 🚀 Je suis l'**Assistant Virtuel Officiel des Astronautes**.\n\nJe peux vous aider sur :\n- 📊 **Le barème de points** (les 8 critères d'évaluation quotidienne)\n  - 🎖️ **Les 18 rangs et versets de promotion** (de Recrue à Amiral Suprême)\n- 🎯 **Les 4 critères de qualification des recrues**\n- 📝 **La rédaction des rapports mensuels de groupe**\n\n*Quelle est votre question aujourd'hui ?*`;
 }
 
 /**

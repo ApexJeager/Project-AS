@@ -1,12 +1,12 @@
 import { User, Child, Attendance, MonthlyReport, DailyGrading } from './types';
 
 export const initialUsers: User[] = [
-  { id: 'u1', name: 'Dev David', role: 'Dev', color_group: null, pinCode: '1926', pin: '1926' },
-  { id: 'u2', name: 'Admin Alice', role: 'Admin', color_group: null, pinCode: '2026', pin: '2026' },
-  { id: 'u3', name: 'Pilote Peter', role: 'Pilote', color_group: 'Red', pinCode: '1001', pin: '1001' },
-  { id: 'u4', name: 'Pilote Paul', role: 'Pilote', color_group: 'Blue', pinCode: '1002', pin: '1002' },
-  { id: 'u5', name: 'Co-Pilote Chloe', role: 'Co-Pilote', color_group: 'Yellow', pinCode: '1003', pin: '1003' },
-  { id: 'u6', name: 'Helper Harry', role: 'Helper', color_group: 'Green', pinCode: '1004', pin: '1004' },
+  { id: 'u1', name: 'Dev David', role: 'Dev', color_group: null },
+  { id: 'u2', name: 'Admin Alice', role: 'Admin', color_group: null },
+  { id: 'u3', name: 'Pilote Peter', role: 'Pilote', color_group: 'Red' },
+  { id: 'u4', name: 'Pilote Paul', role: 'Pilote', color_group: 'Blue' },
+  { id: 'u5', name: 'Co-Pilote Chloe', role: 'Co-Pilote', color_group: 'Yellow' },
+  { id: 'u6', name: 'Helper Harry', role: 'Helper', color_group: 'Green' },
 ];
 
 export const initialChildren: Child[] = [
@@ -22,8 +22,8 @@ export const initialChildren: Child[] = [
       recited_motto: true,
       recited_nt_books: true,
     },
-    current_rank: 'Astronaute',
-    total_accumulated_points: 430, // Eligible for Astronaute 3e classe (400 pts)
+    current_rank: 'Recruit',
+    total_accumulated_points: 430, // Below the canonical Astronaute threshold (500 pts)
   },
   {
     id: 'c2',
@@ -52,8 +52,8 @@ export const initialChildren: Child[] = [
       recited_motto: true,
       recited_nt_books: true,
     },
-    current_rank: 'Astronaute 3e classe',
-    total_accumulated_points: 860, // Eligible for Astronaute 2e classe (800 pts)
+    current_rank: 'Astronaute',
+    total_accumulated_points: 860,
   },
   {
     id: 'c4',
@@ -67,8 +67,8 @@ export const initialChildren: Child[] = [
       recited_motto: true,
       recited_nt_books: true,
     },
-    current_rank: 'Astronaute 1e classe',
-    total_accumulated_points: 1550, // Working towards Sergent (1800 pts)
+    current_rank: 'Apprenti',
+    total_accumulated_points: 1550,
   },
   {
     id: 'c5',
@@ -97,8 +97,8 @@ export const initialChildren: Child[] = [
       recited_motto: true,
       recited_nt_books: true,
     },
-    current_rank: 'Sergent',
-    total_accumulated_points: 2400, // Eligible for Sergent Chef (2300 pts)
+    current_rank: 'Éclaireur',
+    total_accumulated_points: 2400,
   },
   {
     id: 'c7',
@@ -112,8 +112,8 @@ export const initialChildren: Child[] = [
       recited_motto: true,
       recited_nt_books: true,
     },
-    current_rank: 'Lieutenant',
-    total_accumulated_points: 4620, // Working towards Capitaine (5100 pts)
+    current_rank: 'Commandant',
+    total_accumulated_points: 4620,
   },
   {
     id: 'c8',
@@ -127,7 +127,7 @@ export const initialChildren: Child[] = [
       recited_motto: true,
       recited_nt_books: true,
     },
-    current_rank: 'Astronaute 2e classe',
+    current_rank: 'Astronaute',
     total_accumulated_points: 1100,
   },
 ];
@@ -172,7 +172,7 @@ export const initialGradings: DailyGrading[] = [
 ];
 
 export const initialReports: MonthlyReport[] = [
-  { id: 'r1', color_group: 'Red', month_year: '2026-08', content: 'Great month! Tommy completed his 3 consecutive weeks and is ready for Astronaute 3e classe test. High participation in recitation.', status: 'Submitted' },
+  { id: 'r1', color_group: 'Red', month_year: '2026-08', content: 'Great month! Tommy completed his 3 consecutive weeks and is ready for the Astronaute promotion test. High participation in recitation.', status: 'Submitted' },
   { id: 'r2', color_group: 'Blue', month_year: '2026-08', content: 'Mike Brown excelled in his Scripture memory and scored maximum daily points this week.', status: 'Draft' },
   { id: 'r3', color_group: 'Green', month_year: '2026-07', content: 'July was fantastic! Emily and Lily progressed consistently through their rank goals.', status: 'Reviewed' },
 ];

@@ -34,7 +34,7 @@ interface AppState {
   targetLockUserId: string | null;
   lockReason: string | null;
   lockSession: (targetUserIdOrReason?: string, explicitReason?: string) => void;
-  unlockSession: (userId: string, enteredPin: string) => { success: boolean; error?: string };
+  unlockSession: (userId: string, enteredPin: string) => Promise<{ success: boolean; error?: string }>;
   updateUserPin: (userId: string, newPin: string) => Promise<boolean>;
   generateRandomPin: () => string;
 
@@ -46,7 +46,7 @@ interface AppState {
   deleteChild: (childId: string) => Promise<void>;
   addUser: (user: Omit<User, 'id'>) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
-  updateReportStatus: (reportId: string, status: "Draft" | "Submitted" | "Reviewed") => void;
+  updateReportStatus: (reportId: string, status: "Draft" | "Submitted" | "Reviewed") => Promise<void>;
   saveMonthlyReport: (report: Partial<MonthlyReport> & { color_group: any; month_year: string; content: string }) => Promise<void>;
   resetDatabase: () => Promise<void>;
 }
@@ -56,12 +56,12 @@ const AppContext = createContext<AppState | undefined>(undefined);
 const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes of inactivity auto-lock
 
 const initialDefaultUsers: User[] = [
-  { id: "user_dev_1", name: "Justin (Dev)", role: "Dev", color_group: null, pinCode: "1926" },
-  { id: "user_admin_1", name: "Pasteur Admin", role: "Admin", color_group: null, pinCode: "0000" },
-  { id: "user_pilote_red", name: "Sarah (Pilote)", role: "Pilote", color_group: "Red", pinCode: "1001" },
-  { id: "user_pilote_green", name: "David (Pilote)", role: "Pilote", color_group: "Green", pinCode: "1002" },
-  { id: "user_pilote_yellow", name: "Esther (Pilote)", role: "Pilote", color_group: "Yellow", pinCode: "1003" },
-  { id: "user_pilote_blue", name: "Samuel (Pilote)", role: "Pilote", color_group: "Blue", pinCode: "1004" },
+  { id: "user_dev_1", name: "Justin (Dev)", role: "Dev", color_group: null },
+  { id: "user_admin_1", name: "Pasteur Admin", role: "Admin", color_group: null },
+  { id: "user_pilote_red", name: "Sarah (Pilote)", role: "Pilote", color_group: "Red" },
+  { id: "user_pilote_green", name: "David (Pilote)", role: "Pilote", color_group: "Green" },
+  { id: "user_pilote_yellow", name: "Esther (Pilote)", role: "Pilote", color_group: "Yellow" },
+  { id: "user_pilote_blue", name: "Samuel (Pilote)", role: "Pilote", color_group: "Blue" },
 ];
 
 export function AppProvider({ children: reactChildren }: { children: ReactNode }) {
@@ -102,6 +102,21 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
 
   useEffect(() => {
     refreshData();
+    api.getLoginUsers().then(loginUsers => {
+      if (loginUsers.length > 0) setUsers(loginUsers);
+    }).catch(() => {
+      addToast('warning', 'Serveur indisponible', 'Impossible de charger les profils de connexion.');
+    });
+  }, []);
+
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      setIsLocked(true);
+      setLockReason('Votre session a expiré. Veuillez vous reconnecter.');
+      addToast('warning', 'Session expirée', 'Reconnectez-vous pour continuer.');
+    };
+    window.addEventListener('astronautes:auth-expired', handleAuthExpired);
+    return () => window.removeEventListener('astronautes:auth-expired', handleAuthExpired);
   }, []);
 
   // PIN Lock & Security (Always land on PIN lock screen on app reload/entry)
@@ -221,27 +236,21 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
   }, [isLocked]);
 
   // Unlocks session using 4-digit PIN
-  const unlockSession = (userId: string, enteredPin: string): { success: boolean; error?: string } => {
+  const unlockSession = async (userId: string, enteredPin: string): Promise<{ success: boolean; error?: string }> => {
     const targetUser = users.find(u => u.id === userId);
-    if (!targetUser) {
-      return { success: false, error: "Utilisateur non trouvé." };
-    }
-
-    const currentPinCode = targetUser.pinCode || targetUser.pin;
-    const isMasterDevDefault = targetUser.role === 'Dev' && enteredPin === '1926';
-    const isCorrectPin = enteredPin === currentPinCode;
-
-    if (isCorrectPin || isMasterDevDefault) {
-      setCurrentUser(targetUser);
+    if (!targetUser) return { success: false, error: "Utilisateur non trouvé." };
+    try {
+      const authenticatedUser = await api.login(userId, enteredPin);
+      setCurrentUser(authenticatedUser);
       setIsLocked(false);
       setTargetLockUserId(null);
       setLockReason(null);
       
-      if (targetUser.role === 'Dev') {
+      if (authenticatedUser.role === 'Dev') {
         if (!['Users', 'PINs', 'Logs', 'Leaderboard'].includes(activeTab)) {
           setActiveTab('Users');
         }
-      } else if (targetUser.role === 'Admin') {
+      } else if (authenticatedUser.role === 'Admin') {
         if (!['Overview', 'Reports', 'Roster', 'Leaderboard'].includes(activeTab)) {
           setActiveTab('Overview');
         }
@@ -251,11 +260,11 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
         }
       }
 
-      addToast('success', 'Session Déverrouillée', `Bienvenue, ${targetUser.name} (${getRoleLabel(targetUser.role)}) !`);
+      addToast('success', 'Session Déverrouillée', `Bienvenue, ${authenticatedUser.name} (${getRoleLabel(authenticatedUser.role)}) !`);
       return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message || "Code PIN incorrect." };
     }
-
-    return { success: false, error: "Code PIN incorrect." };
   };
 
   // Developer-exclusive PIN Update / Reset
@@ -268,12 +277,12 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
 
     try {
       await api.updateUserPin(userId, sanitizedPin);
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, pinCode: sanitizedPin, pin: sanitizedPin } : u));
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, pinCode: undefined, pin: undefined } : u));
       if (currentUser.id === userId) {
-        setCurrentUser(prev => ({ ...prev, pinCode: sanitizedPin, pin: sanitizedPin }));
+        setCurrentUser(prev => ({ ...prev, pinCode: undefined, pin: undefined }));
       }
       const targetUser = users.find(u => u.id === userId);
-      addToast('success', 'Code PIN Mis à Jour', `Nouveau PIN (${sanitizedPin}) enregistré en base pour ${targetUser?.name}.`);
+      addToast('success', 'Code PIN Mis à Jour', `Nouveau PIN enregistré en base pour ${targetUser?.name}.`);
       return true;
     } catch (e: any) {
       addToast('warning', 'Erreur de mise à jour', e.message || 'Impossible de mettre à jour le code PIN.');
@@ -326,9 +335,23 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
 
         let newProgress = { ...child.qualification_progress };
         if (child.status === 'Recruit' && gradingRecord.presence) {
-          if (newProgress.consecutive_weeks < 3) {
-            newProgress.consecutive_weeks = Math.min(3, newProgress.consecutive_weeks + 1);
+          // Qualification is based on distinct Sunday attendance dates, not grading saves.
+          const presentDates = new Set(attendances
+            .filter(a => a.child_id === child.id && a.status === 'Present')
+            .map(a => a.date));
+          presentDates.add(gradingRecord.date);
+          const sundays = [...presentDates]
+            .filter(date => new Date(`${date}T00:00:00Z`).getUTCDay() === 0)
+            .sort()
+            .reverse();
+          let consecutive = 0;
+          for (let i = 0; i < sundays.length; i += 1) {
+            const current = new Date(`${sundays[i]}T00:00:00Z`);
+            const previous = sundays[i + 1] ? new Date(`${sundays[i + 1]}T00:00:00Z`) : null;
+            if (i === 0 || (previous && (current.getTime() - previous.getTime()) === 7 * 24 * 60 * 60 * 1000)) consecutive += 1;
+            else break;
           }
+          newProgress.consecutive_weeks = Math.min(3, consecutive);
         }
 
         const isNowQualified = child.status === 'Recruit' && isRecruitFullyQualified(newProgress);
@@ -457,9 +480,16 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
     }
   };
 
-  const updateReportStatus = (reportId: string, status: "Draft" | "Submitted" | "Reviewed") => {
-    setReports(prev => prev.map(r => r.id === reportId ? { ...r, status } : r));
-    addToast('info', 'Rapport Mis à Jour', `Le statut du rapport est passé à "${getStatusLabel(status)}".`);
+  const updateReportStatus = async (reportId: string, status: "Draft" | "Submitted" | "Reviewed") => {
+    const report = reports.find(r => r.id === reportId);
+    if (!report) return;
+    try {
+      await api.saveReport({ ...report, status });
+      await refreshData();
+      addToast('info', 'Rapport Mis à Jour', `Le statut du rapport est passé à "${getStatusLabel(status)}".`);
+    } catch (e: any) {
+      addToast('warning', 'Erreur', e.message || 'Échec de la mise à jour du rapport.');
+    }
   };
 
   const saveMonthlyReport = async (report: Partial<MonthlyReport> & { color_group: any; month_year: string; content: string }) => {

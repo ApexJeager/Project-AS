@@ -14,10 +14,7 @@ interface RecruitQualificationModalProps {
 
 export default function RecruitQualificationModal({ child, isOpen, onClose }: RecruitQualificationModalProps) {
   const { updateRecruitProgress } = useAppContext();
-
-  if (!isOpen || !child) return null;
-
-  const progress = child.qualification_progress || {
+  const progress = child?.qualification_progress || {
     consecutive_weeks: 0,
     recited_astronaut_verse: false,
     recited_motto: false,
@@ -28,6 +25,15 @@ export default function RecruitQualificationModal({ child, isOpen, onClose }: Re
   const [verse, setVerse] = useState(progress.recited_astronaut_verse);
   const [motto, setMotto] = useState(progress.recited_motto);
   const [ntBooks, setNtBooks] = useState(progress.recited_nt_books);
+
+  React.useEffect(() => {
+    setWeeks(progress.consecutive_weeks);
+    setVerse(progress.recited_astronaut_verse);
+    setMotto(progress.recited_motto);
+    setNtBooks(progress.recited_nt_books);
+  }, [child?.id, progress.consecutive_weeks, progress.recited_astronaut_verse, progress.recited_motto, progress.recited_nt_books]);
+
+  if (!isOpen || !child) return null;
 
   const isReady = weeks >= 3 && verse && motto && ntBooks;
 
@@ -217,4 +223,3 @@ export default function RecruitQualificationModal({ child, isOpen, onClose }: Re
     </div>
   );
 }
-

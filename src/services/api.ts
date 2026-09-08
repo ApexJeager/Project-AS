@@ -1,128 +1,92 @@
 import { User, Child, DailyGrading, Attendance, MonthlyReport } from '../types';
 
+const TOKEN_KEY = 'astronautes_session_token';
+
+function getToken(): string | null {
+  try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
+}
+
+function setToken(token: string | null) {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch { /* private browsing can disable storage */ }
+}
+
+async function request<T>(url: string, options: RequestInit = {}, authenticated = true): Promise<T> {
+  const headers = new Headers(options.headers);
+  if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  if (authenticated) {
+    const token = getToken();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+  }
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401 && authenticated) {
+    setToken(null);
+    window.dispatchEvent(new CustomEvent('astronautes:auth-expired'));
+  }
+  if (!res.ok) {
+    let message = 'La requête a échoué.';
+    try {
+      const body = await res.json();
+      if (typeof body.error === 'string') message = body.error;
+    } catch { /* use generic message */ }
+    throw new Error(message);
+  }
+  return res.status === 204 ? undefined as T : res.json();
+}
+
 export const api = {
-  // USERS
-  async getUsers(): Promise<User[]> {
-    const res = await fetch('/api/users');
-    if (!res.ok) throw new Error('Failed to fetch users');
-    return res.json();
+  async getLoginUsers(): Promise<User[]> {
+    return request<User[]>('/api/auth/users', {}, false);
   },
 
+  async login(userId: string, pin: string): Promise<User> {
+    const result = await request<{ token: string; user: User }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId, pin }),
+    }, false);
+    setToken(result.token);
+    return result.user;
+  },
+
+  logout() { setToken(null); },
+
+  async getUsers(): Promise<User[]> { return request<User[]>('/api/users'); },
   async createUser(user: Partial<User>): Promise<User> {
-    const res = await fetch('/api/users', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(user),
-    });
-    if (!res.ok) throw new Error('Failed to create user');
-    return res.json();
+    return request<User>('/api/users', { method: 'POST', body: JSON.stringify(user) });
   },
-
   async updateUserPin(id: string, pinCode: string): Promise<User> {
-    const res = await fetch(`/api/users/${id}/pin`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pinCode }),
-    });
-    if (!res.ok) throw new Error('Failed to update PIN');
-    return res.json();
+    return request<User>(`/api/users/${id}/pin`, { method: 'PUT', body: JSON.stringify({ pinCode }) });
   },
-
   async deleteUser(id: string): Promise<void> {
-    const res = await fetch(`/api/users/${id}`, {
-      method: 'DELETE',
-    });
-    if (!res.ok) throw new Error('Failed to delete user');
+    await request<void>(`/api/users/${id}`, { method: 'DELETE' });
   },
 
-  // CHILDREN
-  async getChildren(): Promise<Child[]> {
-    const res = await fetch('/api/children');
-    if (!res.ok) throw new Error('Failed to fetch children');
-    return res.json();
-  },
-
+  async getChildren(): Promise<Child[]> { return request<Child[]>('/api/children'); },
   async createChild(child: Partial<Child>): Promise<Child> {
-    const res = await fetch('/api/children', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(child),
-    });
-    if (!res.ok) throw new Error('Failed to create child');
-    return res.json();
+    return request<Child>('/api/children', { method: 'POST', body: JSON.stringify(child) });
   },
-
   async updateChild(id: string, child: Partial<Child>): Promise<Child> {
-    const res = await fetch(`/api/children/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(child),
-    });
-    if (!res.ok) throw new Error('Failed to update child');
-    return res.json();
+    return request<Child>(`/api/children/${id}`, { method: 'PUT', body: JSON.stringify(child) });
   },
-
   async deleteChild(id: string): Promise<void> {
-    const res = await fetch(`/api/children/${id}`, {
-      method: 'DELETE',
-    });
-    if (!res.ok) throw new Error('Failed to delete child');
+    await request<void>(`/api/children/${id}`, { method: 'DELETE' });
   },
 
-  // GRADINGS
-  async getGradings(): Promise<DailyGrading[]> {
-    const res = await fetch('/api/gradings');
-    if (!res.ok) throw new Error('Failed to fetch gradings');
-    return res.json();
-  },
-
+  async getGradings(): Promise<DailyGrading[]> { return request<DailyGrading[]>('/api/gradings'); },
   async saveGrading(grading: Partial<DailyGrading>): Promise<DailyGrading> {
-    const res = await fetch('/api/gradings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(grading),
-    });
-    if (!res.ok) throw new Error('Failed to save grading');
-    return res.json();
+    return request<DailyGrading>('/api/gradings', { method: 'POST', body: JSON.stringify(grading) });
   },
-
-  // ATTENDANCES
-  async getAttendances(): Promise<Attendance[]> {
-    const res = await fetch('/api/attendances');
-    if (!res.ok) throw new Error('Failed to fetch attendances');
-    return res.json();
-  },
-
+  async getAttendances(): Promise<Attendance[]> { return request<Attendance[]>('/api/attendances'); },
   async saveAttendance(attendance: Partial<Attendance>): Promise<Attendance> {
-    const res = await fetch('/api/attendances', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(attendance),
-    });
-    if (!res.ok) throw new Error('Failed to save attendance');
-    return res.json();
+    return request<Attendance>('/api/attendances', { method: 'POST', body: JSON.stringify(attendance) });
   },
-
-  // REPORTS
-  async getReports(): Promise<MonthlyReport[]> {
-    const res = await fetch('/api/reports');
-    if (!res.ok) throw new Error('Failed to fetch reports');
-    return res.json();
-  },
-
+  async getReports(): Promise<MonthlyReport[]> { return request<MonthlyReport[]>('/api/reports'); },
   async saveReport(report: Partial<MonthlyReport>): Promise<MonthlyReport> {
-    const res = await fetch('/api/reports', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(report),
-    });
-    if (!res.ok) throw new Error('Failed to save report');
-    return res.json();
+    return request<MonthlyReport>('/api/reports', { method: 'POST', body: JSON.stringify(report) });
   },
-
-  // RESET
   async resetDatabase(): Promise<void> {
-    const res = await fetch('/api/reset', { method: 'POST' });
-    if (!res.ok) throw new Error('Failed to reset database');
+    await request<void>('/api/reset', { method: 'POST' });
   },
 };

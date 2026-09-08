@@ -6,8 +6,9 @@ export interface User {
   name: string;
   role: Role;
   color_group: ColorGroup | null;
-  pinCode: string; // 4-digit security PIN (Dev master default: "1926")
-  pin?: string; // alias for backwards-compatibility
+  // PINs are accepted when creating/updating a user but are never returned by the API.
+  pinCode?: string;
+  pin?: string;
 }
 
 export interface QualificationProgress {

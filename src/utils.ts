@@ -97,21 +97,20 @@ export function getRoleClasses(role: string): string {
 export function getRankBadgeClasses(rank: string): string {
   if (rank === 'Recruit') return 'bg-zinc-100 text-zinc-600 border-zinc-200/80';
   if (rank === 'Astronaute') return 'bg-cyan-50 text-cyan-800 border-cyan-200/80';
-  if (rank.includes('3e classe') || rank.includes('2e classe') || rank.includes('1e classe')) {
+  if (rank === 'Apprenti' || rank === 'Sentinelle' || rank === 'Éclaireur') {
     return 'bg-blue-50 text-blue-800 border-blue-200/80';
   }
-  if (rank.includes('Sergent') || rank.includes('Adjudant')) {
+  if (rank === 'Explorateur' || rank === 'Pionnier' || rank === 'Navigateur') {
     return 'bg-emerald-50 text-emerald-800 border-emerald-200/80';
   }
-  if (rank.includes('Lieutenant') || rank.includes('Capitaine') || rank.includes('Major')) {
+  if (rank === 'Capitaine' || rank === 'Commandant' || rank === "Garde d'Honneur") {
     return 'bg-amber-50 text-amber-900 border-amber-200/80';
   }
-  if (rank.includes('Colonel') || rank.includes('Général')) {
+  if (rank === 'Chevalier Céleste' || rank === 'Ambassadeur' || rank === 'Sentinelle Stellaire') {
     return 'bg-purple-50 text-purple-900 border-purple-200/80';
   }
-  if (rank.includes('Coupe')) {
+  if (rank === 'Légat Céleste' || rank === 'Maître de Mission' || rank === 'Grand Commandeur' || rank === 'Amiral Suprême') {
     return 'bg-amber-100 text-amber-950 font-bold border-amber-300 shadow-2xs';
   }
   return 'bg-indigo-50 text-indigo-800 border-indigo-200/80';
 }
-

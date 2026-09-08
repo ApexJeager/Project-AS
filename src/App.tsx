@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { Analytics } from '@vercel/analytics/react';
 import { AppProvider, useAppContext } from './AppContext';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
@@ -56,6 +57,7 @@ export default function App() {
   return (
     <AppProvider>
       <AppContent />
+      <Analytics />
     </AppProvider>
   );
 }

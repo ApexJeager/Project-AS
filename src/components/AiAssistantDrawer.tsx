@@ -19,11 +19,11 @@ import {
 
 const SUGGESTED_PROMPTS = [
   "Combien de points vaut la Bible ?",
-  "Versets pour la promotion Sergent ?",
+  "Quel est le verset du rang Commandant ?",
   "Aide-moi à rédiger le rapport mensuel",
   "Critères de qualification recrue",
   "Barème complet des 8 critères",
-  "Verset de la Coupe de Timothée"
+  "Verset de l'Amiral Suprême"
 ];
 
 const INITIAL_MESSAGES: ChatMessage[] = [

@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, integer, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -41,7 +41,9 @@ export const dailyGradings = pgTable("daily_gradings", {
   visitorsCount: integer("visitors_count").notNull().default(0),
   totalDayPoints: integer("total_day_points").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  childDateUnique: uniqueIndex("daily_gradings_child_date_idx").on(table.childId, table.date),
+}));
 
 export const attendances = pgTable("attendances", {
   id: text("id").primaryKey(),
@@ -50,7 +52,9 @@ export const attendances = pgTable("attendances", {
   status: text("status").notNull(), // 'Present' | 'Absent'
   recordedByUserId: text("recorded_by_user_id").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  childDateUnique: uniqueIndex("attendances_child_date_idx").on(table.childId, table.date),
+}));
 
 export const monthlyReports = pgTable("monthly_reports", {
   id: text("id").primaryKey(),

@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { defineConfig } from "drizzle-kit";
 
 export default defineConfig({
@@ -6,11 +7,7 @@ export default defineConfig({
   dialect: "postgresql",
   schemaFilter: ["public"],
   dbCredentials: {
-    host: process.env.SQL_HOST || "localhost",
-    user: process.env.SQL_ADMIN_USER || "postgres",
-    password: process.env.SQL_ADMIN_PASSWORD || "",
-    database: process.env.SQL_DB_NAME || "postgres",
-    ssl: false,
+    url: process.env.DATABASE_URL || "",
   },
   verbose: true,
 });

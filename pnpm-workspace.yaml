@@ -1,0 +1,2 @@
+overrides:
+  express>qs: '>=6.16.0'

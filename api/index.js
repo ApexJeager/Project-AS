@@ -1,21 +1,18 @@
-import { createRequire } from 'node:module';
+import { randomUUID } from 'node:crypto';
 
-const require = createRequire(import.meta.url);
 let appPromise;
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   try {
     if (!appPromise) {
-      const { startServer } = require('../dist/server.cjs');
+      const { startServer } = await import('../dist/server.cjs');
       appPromise = startServer();
     }
     const app = await appPromise;
     app(req, res);
   } catch (error) {
-    console.error('Unable to initialize Vercel API:', error);
-    res.status(500).json({
-      error: 'Server initialization failed.',
-      detail: error instanceof Error ? error.message : 'Unknown initialization error.',
-    });
+    const errorId = randomUUID();
+    console.error(`Unable to initialize Vercel API [${errorId}]:`, error);
+    res.status(500).json({ error: 'Server initialization failed.', error_id: errorId });
   }
-};
+}

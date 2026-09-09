@@ -2,9 +2,28 @@ import 'dotenv/config';
 import express, { NextFunction, Request, Response } from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { eq } from 'drizzle-orm';
-import { db, ensureSchema, pool } from './src/db/index.ts';
-import { users, children, dailyGradings, attendances, monthlyReports } from './src/db/schema.ts';
+import {
+  ensureSchema,
+  findChild,
+  findUser,
+  insertChild,
+  insertUser,
+  insertUsers,
+  listAttendances,
+  listChildren,
+  listGradings,
+  listReports,
+  listUsers,
+  resetDatabase,
+  updateChild,
+  updateUserPin,
+  upsertAttendance,
+  upsertGrading,
+  upsertReport,
+  deleteChild,
+  deleteUser,
+} from './src/db/index.ts';
+import type { ChildRecord, DailyGradingRecord, UserRecord } from './src/db/schema.ts';
 import { AuthUser, createToken, hashPin, verifyPin, verifyToken } from './src/server/auth.ts';
 import { RANK_SYSTEM } from './src/constants/ranks.ts';
 
@@ -14,8 +33,11 @@ const groups = ['Red', 'Green', 'Yellow', 'Blue'] as const;
 const statuses = ['Present', 'Absent'] as const;
 const reportStatuses = ['Draft', 'Submitted', 'Reviewed'] as const;
 const validRanks = new Set(['Recruit', ...RANK_SYSTEM.map(rank => rank.title)]);
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 10;
 
-function publicUser(user: typeof users.$inferSelect): AuthUser {
+function publicUser(user: UserRecord): AuthUser {
   return { id: user.id, name: user.name, role: user.role, color_group: user.color_group };
 }
 
@@ -32,7 +54,7 @@ function requireAuth(req: RequestWithAuth, res: Response, next: NextFunction) {
     res.status(401).json({ error: 'Authentification requise.' });
     return;
   }
-  db.select().from(users).where(eq(users.id, identity.id)).limit(1).then(([user]) => {
+  findUser(identity.id).then((user) => {
     if (!user || user.role !== identity.role) {
       res.status(401).json({ error: 'Session invalide ou expirée.' });
       return;
@@ -61,6 +83,17 @@ function canAccessGroup(user: AuthUser | undefined, group: string): boolean {
   return Boolean(user && (isGlobalUser(user) || user.color_group === group));
 }
 
+function isRateLimited(key: string): boolean {
+  const now = Date.now();
+  const current = loginAttempts.get(key);
+  if (!current || current.resetAt <= now) {
+    loginAttempts.set(key, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+    return false;
+  }
+  current.count += 1;
+  return current.count > LOGIN_MAX_ATTEMPTS;
+}
+
 function isRecord(value: unknown): value is Record<string, any> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -79,7 +112,7 @@ function isMonth(value: unknown): value is string {
   return typeof value === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
 }
 
-function mapChild(child: typeof children.$inferSelect) {
+function mapChild(child: ChildRecord) {
   return {
     id: child.id,
     first_name: child.firstName,
@@ -92,7 +125,7 @@ function mapChild(child: typeof children.$inferSelect) {
   };
 }
 
-function mapGrading(grading: typeof dailyGradings.$inferSelect) {
+function mapGrading(grading: DailyGradingRecord) {
   return {
     id: grading.id,
     child_id: grading.childId,
@@ -113,7 +146,22 @@ function mapGrading(grading: typeof dailyGradings.$inferSelect) {
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
+  if (process.env.NODE_ENV === 'production') {
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required in production.');
+    }
+    if (!process.env.AUTH_SECRET || process.env.AUTH_SECRET.length < 32) {
+      throw new Error('AUTH_SECRET must be at least 32 characters in production.');
+    }
+  }
+  app.set('trust proxy', 1);
   app.use(express.json({ limit: '128kb' }));
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    next();
+  });
 
   const defaultBaseUsers = [
     { id: 'user_dev_1', name: 'Justin (Dev)', role: 'Dev', color_group: null, pinCode: '1926' },
@@ -130,9 +178,9 @@ async function startServer() {
 
   try {
     await ensureSchema();
-    const existingUsers = await db.select().from(users);
+    const existingUsers = await listUsers();
     if (existingUsers.length === 0) {
-      await db.insert(users).values(defaultBaseUsers.map(user => ({
+      await insertUsers(defaultBaseUsers.map(user => ({
         ...user,
         pinCode: hashPin(user.pinCode),
       })));
@@ -140,18 +188,21 @@ async function startServer() {
       // One-time, safe migration for installations created before PIN hashing.
       for (const user of existingUsers) {
         if (!user.pinCode.startsWith('scrypt$')) {
-          await db.update(users).set({ pinCode: hashPin(user.pinCode) }).where(eq(users.id, user.id));
+          await updateUserPin(user.id, hashPin(user.pinCode));
         }
       }
     }
   } catch (error) {
     console.error('Database initialization failed; health endpoint will report unavailable.', error);
+    if (process.env.NODE_ENV === 'production') {
+      throw error;
+    }
   }
 
   // Public only for the PIN profile picker; it never exposes credentials.
   app.get('/api/auth/users', async (_req, res) => {
     try {
-      const availableUsers = await db.select().from(users);
+      const availableUsers = await listUsers();
       res.json(availableUsers.map(publicUser));
     } catch (error) {
       errorResponse(res, error);
@@ -160,18 +211,23 @@ async function startServer() {
 
   app.post('/api/auth/login', async (req, res) => {
     try {
+      const clientKey = `${req.ip}:${typeof req.body?.user_id === 'string' ? req.body.user_id : 'unknown'}`;
+      if (isRateLimited(clientKey)) {
+        res.status(429).json({ error: 'Trop de tentatives. Réessayez plus tard.' });
+        return;
+      }
       if (!isRecord(req.body) || !isId(req.body.user_id) || typeof req.body.pin !== 'string' || !/^\d{4}$/.test(req.body.pin)) {
         res.status(400).json({ error: 'Identifiants invalides.' });
         return;
       }
-      const [user] = await db.select().from(users).where(eq(users.id, req.body.user_id)).limit(1);
+      const user = await findUser(req.body.user_id);
       if (!user || !verifyPin(req.body.pin, user.pinCode)) {
         res.status(401).json({ error: 'Identifiants invalides.' });
         return;
       }
       // Upgrade a legacy plaintext PIN only after a successful login.
       if (!user.pinCode.startsWith('scrypt$')) {
-        await db.update(users).set({ pinCode: hashPin(req.body.pin) }).where(eq(users.id, user.id));
+        await updateUserPin(user.id, hashPin(req.body.pin));
       }
       const safeUser = publicUser(user);
       res.json({ token: createToken(safeUser), user: safeUser });
@@ -182,7 +238,7 @@ async function startServer() {
 
   app.get('/api/health', async (_req, res) => {
     try {
-      await pool.query('SELECT 1');
+      await ensureSchema();
       res.json({ status: 'ok', database: 'connected' });
     } catch (error) {
       console.error(error);
@@ -194,7 +250,7 @@ async function startServer() {
 
   app.get('/api/users', async (_req, res) => {
     try {
-      res.json((await db.select().from(users)).map(publicUser));
+      res.json((await listUsers()).map(publicUser));
     } catch (error) { errorResponse(res, error); }
   });
 
@@ -206,11 +262,11 @@ async function startServer() {
         res.status(400).json({ error: 'Données utilisateur invalides.' });
         return;
       }
-      const [created] = await db.insert(users).values({
+      const created = await insertUser({
         id: body.id, name: body.name.trim().slice(0, 120), role: body.role,
         color_group: body.role === 'Dev' || body.role === 'Admin' ? null : body.color_group,
         pinCode: hashPin(body.pinCode),
-      }).returning();
+      });
       res.status(201).json(publicUser(created));
     } catch (error) { errorResponse(res, error); }
   });
@@ -221,7 +277,7 @@ async function startServer() {
         res.status(400).json({ error: 'Le PIN doit comporter exactement 4 chiffres.' });
         return;
       }
-      const [updated] = await db.update(users).set({ pinCode: hashPin(req.body.pinCode) }).where(eq(users.id, req.params.id)).returning();
+      const updated = await updateUserPin(req.params.id, hashPin(req.body.pinCode));
       if (!updated) { res.status(404).json({ error: 'Utilisateur introuvable.' }); return; }
       res.json(publicUser(updated));
     } catch (error) { errorResponse(res, error); }
@@ -230,17 +286,15 @@ async function startServer() {
   app.delete('/api/users/:id', requireRole('Dev'), async (req: RequestWithAuth, res) => {
     try {
       if (!isId(req.params.id) || req.params.id === req.auth?.id) { res.status(400).json({ error: 'Suppression impossible.' }); return; }
-      const deleted = await db.delete(users).where(eq(users.id, req.params.id)).returning({ id: users.id });
-      if (deleted.length === 0) { res.status(404).json({ error: 'Utilisateur introuvable.' }); return; }
+      const deleted = await deleteUser(req.params.id);
+      if (!deleted) { res.status(404).json({ error: 'Utilisateur introuvable.' }); return; }
       res.json({ success: true });
     } catch (error) { errorResponse(res, error); }
   });
 
   app.get('/api/children', async (req: RequestWithAuth, res) => {
     try {
-      const allChildren = isGlobalUser(req.auth)
-        ? await db.select().from(children)
-        : await db.select().from(children).where(eq(children.colorGroup, req.auth?.color_group || ''));
+      const allChildren = await listChildren(isGlobalUser(req.auth) ? undefined : (req.auth?.color_group || ''));
       res.json(allChildren.map(mapChild));
     }
     catch (error) { errorResponse(res, error); }
@@ -256,7 +310,7 @@ async function startServer() {
       if (!canAccessGroup(req.auth, body.color_group)) {
         res.status(403).json({ error: 'Droits insuffisants.' }); return;
       }
-      const [created] = await db.insert(children).values({
+      const created = await insertChild({
         id: body.id, firstName: body.first_name.trim().slice(0, 80), lastName: body.last_name.trim().slice(0, 80),
         colorGroup: body.color_group, status: body.status === 'Qualified Astronaute' ? body.status : 'Recruit',
         qualificationProgress: isRecord(body.qualification_progress) ? body.qualification_progress : {
@@ -264,7 +318,7 @@ async function startServer() {
         },
         currentRank: typeof body.current_rank === 'string' ? body.current_rank : 'Recruit',
         totalAccumulatedPoints: Number.isInteger(body.total_accumulated_points) && body.total_accumulated_points >= 0 ? body.total_accumulated_points : 0,
-      }).returning();
+      });
       res.status(201).json(mapChild(created));
     } catch (error) { errorResponse(res, error); }
   });
@@ -272,7 +326,7 @@ async function startServer() {
   app.put('/api/children/:id', async (req: RequestWithAuth, res) => {
     try {
       if (!isId(req.params.id) || !isRecord(req.body)) { res.status(400).json({ error: 'Données invalides.' }); return; }
-      const [existing] = await db.select().from(children).where(eq(children.id, req.params.id)).limit(1);
+      const existing = await findChild(req.params.id);
       if (!existing) { res.status(404).json({ error: 'Enfant introuvable.' }); return; }
       if (!canAccessGroup(req.auth, existing.colorGroup)) { res.status(403).json({ error: 'Droits insuffisants.' }); return; }
       const body = req.body;
@@ -290,12 +344,19 @@ async function startServer() {
       if (body.current_rank !== undefined && typeof body.current_rank === 'string' && validRanks.has(body.current_rank)) updateData.currentRank = body.current_rank;
       if (body.total_accumulated_points !== undefined) {
         // Points are derived from persisted gradings; never trust a client total.
-        const childGradings = await db.select({ points: dailyGradings.totalDayPoints })
-          .from(dailyGradings).where(eq(dailyGradings.childId, req.params.id));
-        updateData.totalAccumulatedPoints = childGradings.reduce((total, grading) => total + grading.points, 0);
+        const childGradings = (await listGradings()).filter(grading => grading.childId === req.params.id);
+        updateData.totalAccumulatedPoints = childGradings.reduce((total, grading) => total + grading.totalDayPoints, 0);
       }
       if (Object.keys(updateData).length === 0) { res.status(400).json({ error: 'Aucun champ valide à mettre à jour.' }); return; }
-      const [updated] = await db.update(children).set(updateData).where(eq(children.id, req.params.id)).returning();
+      const updated = await updateChild(req.params.id, {
+        firstName: updateData.firstName,
+        lastName: updateData.lastName,
+        colorGroup: updateData.colorGroup,
+        status: updateData.status,
+        qualificationProgress: updateData.qualificationProgress,
+        currentRank: updateData.currentRank,
+        totalAccumulatedPoints: updateData.totalAccumulatedPoints,
+      });
       if (!updated) { res.status(404).json({ error: 'Enfant introuvable.' }); return; }
       res.json(mapChild(updated));
     } catch (error) { errorResponse(res, error); }
@@ -304,19 +365,18 @@ async function startServer() {
   app.delete('/api/children/:id', requireRole('Dev', 'Admin'), async (req, res) => {
     try {
       if (!isId(req.params.id)) { res.status(400).json({ error: 'Identifiant invalide.' }); return; }
-      const deleted = await db.delete(children).where(eq(children.id, req.params.id)).returning({ id: children.id });
-      if (deleted.length === 0) { res.status(404).json({ error: 'Enfant introuvable.' }); return; }
+      const deleted = await deleteChild(req.params.id);
+      if (!deleted) { res.status(404).json({ error: 'Enfant introuvable.' }); return; }
       res.json({ success: true });
     } catch (error) { errorResponse(res, error); }
   });
 
   app.get('/api/gradings', async (req: RequestWithAuth, res) => {
     try {
-      const all = await db.select().from(dailyGradings);
+      const all = await listGradings();
       const visibleChildIds = isGlobalUser(req.auth)
         ? null
-        : new Set((await db.select({ id: children.id }).from(children)
-          .where(eq(children.colorGroup, req.auth?.color_group || ''))).map(child => child.id));
+        : new Set((await listChildren(req.auth?.color_group || '')).map(child => child.id));
       const visible = visibleChildIds ? all.filter(grading => visibleChildIds.has(grading.childId)) : all;
       res.json(visible.map(mapGrading));
     }
@@ -332,7 +392,7 @@ async function startServer() {
           (body.visitors_count !== undefined && (!Number.isInteger(body.visitors_count) || body.visitors_count < 0 || body.visitors_count > 100))) {
         res.status(400).json({ error: 'Évaluation invalide.' }); return;
       }
-      const [child] = await db.select().from(children).where(eq(children.id, body.child_id)).limit(1);
+      const child = await findChild(body.child_id);
       if (!child) { res.status(404).json({ error: 'Enfant introuvable.' }); return; }
       if (!canAccessGroup(req.auth, child.colorGroup)) { res.status(403).json({ error: 'Droits insuffisants.' }); return; }
       const visitorsCount = body.visitors_count || 0;
@@ -346,26 +406,17 @@ async function startServer() {
         verseOfTheDay: Boolean(body.verse_of_the_day), bible: Boolean(body.bible), cleanliness: Boolean(body.cleanliness),
         scarf: Boolean(body.scarf), visitorsCount, totalDayPoints,
       };
-      const [saved] = await db.insert(dailyGradings).values(values).onConflictDoUpdate({
-        target: [dailyGradings.childId, dailyGradings.date],
-        set: {
-          presence: values.presence, punctuality: values.punctuality, goodBehavior: values.goodBehavior,
-          verseOfTheDay: values.verseOfTheDay, bible: values.bible, cleanliness: values.cleanliness,
-          scarf: values.scarf, visitorsCount: values.visitorsCount, totalDayPoints: values.totalDayPoints,
-          recordedBy: values.recordedBy,
-        },
-      }).returning();
+      const saved = await upsertGrading(values);
       res.json(mapGrading(saved));
     } catch (error) { errorResponse(res, error); }
   });
 
   app.get('/api/attendances', async (req: RequestWithAuth, res) => {
     try {
-      const all = await db.select().from(attendances);
+      const all = await listAttendances();
       const visibleChildIds = isGlobalUser(req.auth)
         ? null
-        : new Set((await db.select({ id: children.id }).from(children)
-          .where(eq(children.colorGroup, req.auth?.color_group || ''))).map(child => child.id));
+        : new Set((await listChildren(req.auth?.color_group || '')).map(child => child.id));
       const visible = visibleChildIds ? all.filter(attendance => visibleChildIds.has(attendance.childId)) : all;
       res.json(visible.map(a => ({ id: a.id, child_id: a.childId, date: a.date, status: a.status, recorded_by_user_id: a.recordedByUserId })));
     } catch (error) { errorResponse(res, error); }
@@ -377,24 +428,19 @@ async function startServer() {
       if (!isRecord(body) || !isId(body.id) || !isId(body.child_id) || !isDate(body.date) || !statuses.includes(body.status)) {
         res.status(400).json({ error: 'Présence invalide.' }); return;
       }
-      const [child] = await db.select().from(children).where(eq(children.id, body.child_id)).limit(1);
+      const child = await findChild(body.child_id);
       if (!child) { res.status(404).json({ error: 'Enfant introuvable.' }); return; }
       if (!canAccessGroup(req.auth, child.colorGroup)) { res.status(403).json({ error: 'Droits insuffisants.' }); return; }
-      const [saved] = await db.insert(attendances).values({
+      const saved = await upsertAttendance({
         id: body.id, childId: body.child_id, date: body.date, status: body.status, recordedByUserId: req.auth?.id || '',
-      }).onConflictDoUpdate({
-        target: [attendances.childId, attendances.date],
-        set: { status: body.status, recordedByUserId: req.auth?.id || '' },
-      }).returning();
+      });
       res.json({ id: saved.id, child_id: saved.childId, date: saved.date, status: saved.status, recorded_by_user_id: saved.recordedByUserId });
     } catch (error) { errorResponse(res, error); }
   });
 
   app.get('/api/reports', async (req: RequestWithAuth, res) => {
     try {
-      const all = isGlobalUser(req.auth)
-        ? await db.select().from(monthlyReports)
-        : await db.select().from(monthlyReports).where(eq(monthlyReports.colorGroup, req.auth?.color_group || ''));
+      const all = await listReports(isGlobalUser(req.auth) ? undefined : (req.auth?.color_group || ''));
       res.json(all.map(r => ({ id: r.id, color_group: r.colorGroup, month_year: r.monthYear, content: r.content, status: r.status })));
     } catch (error) { errorResponse(res, error); }
   });
@@ -412,25 +458,17 @@ async function startServer() {
       if (!canAccessGroup(req.auth, body.color_group)) {
         res.status(403).json({ error: 'Droits insuffisants.' }); return;
       }
-      const [saved] = await db.insert(monthlyReports).values({
+      const saved = await upsertReport({
         id: body.id, colorGroup: body.color_group, monthYear: body.month_year, content: body.content.slice(0, 50_000),
         status: body.status || 'Draft',
-      }).onConflictDoUpdate({
-        target: monthlyReports.id,
-        set: { content: body.content.slice(0, 50_000), status: body.status || 'Draft', updatedAt: new Date() },
-      }).returning();
+      });
       res.json({ id: saved.id, color_group: saved.colorGroup, month_year: saved.monthYear, content: saved.content, status: saved.status });
     } catch (error) { errorResponse(res, error); }
   });
 
   app.post('/api/reset', requireRole('Dev'), async (_req, res) => {
     try {
-      await db.delete(dailyGradings);
-      await db.delete(attendances);
-      await db.delete(children);
-      await db.delete(monthlyReports);
-      await db.delete(users);
-      await db.insert(users).values(defaultBaseUsers.map(user => ({ ...user, pinCode: hashPin(user.pinCode) })));
+      await resetDatabase(defaultBaseUsers.map(user => ({ ...user, pinCode: hashPin(user.pinCode) })));
       res.json({ success: true, message: 'Base réinitialisée.' });
     } catch (error) { errorResponse(res, error); }
   });

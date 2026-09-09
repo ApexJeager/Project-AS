@@ -143,7 +143,7 @@ function mapGrading(grading: DailyGradingRecord) {
   };
 }
 
-async function startServer() {
+export async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT || 3000);
   if (process.env.NODE_ENV === 'production') {
@@ -483,10 +483,17 @@ async function startServer() {
     app.use(express.static(distPath));
     app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')));
   }
-  app.listen(PORT, '0.0.0.0', () => console.log(`Server running on http://localhost:${PORT}`));
+  if (!process.env.VERCEL) {
+    app.listen(PORT, '0.0.0.0', () => console.log(`Server running on http://localhost:${PORT}`));
+  }
+  return app;
 }
 
-startServer().catch(error => {
-  console.error('Unable to start server:', error);
-  process.exitCode = 1;
-});
+export const appPromise = startServer();
+
+if (!process.env.VERCEL) {
+  appPromise.catch(error => {
+    console.error('Unable to start server:', error);
+    process.exitCode = 1;
+  });
+}

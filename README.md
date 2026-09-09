@@ -3,7 +3,7 @@
 Une application web d'excellence conçue sur mesure pour le **Ministère des Enfants Astronautes**, alliant rigueur pédagogique, notation quotidienne basée sur 8 critères officiels, qualification des recrues, matrice solennelle de 18 rangs bibliques, gouvernance par rôles (RBAC) sécurisée par code PIN, et assistant IA embarqué.
 
 ---
-> **Sécurité :** l'API utilise une session signée côté serveur, un RBAC serveur et des PIN hachés (scrypt). Définissez `DATABASE_URL` et `AUTH_SECRET` (obligatoire en production) avant tout déploiement avec des données réelles.
+> **Sécurité :** l'API utilise une session signée côté serveur, un RBAC serveur et des PIN hachés (scrypt). Définissez `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` et `AUTH_SECRET` (obligatoire en production) avant tout déploiement avec des données réelles. La clé service-role reste strictement côté serveur.
 
 ## 🌟 Points Clés & Fonctionnalités Majeures
 
@@ -108,6 +108,22 @@ La progression se fait par cumul continu de points et examen solennel de récita
 
 ---
 
+## 🗄️ Base de données Supabase
+
+Le serveur utilise `@supabase/supabase-js` et l'API REST Supabase ; il n'utilise plus Drizzle, `pg` ou une connexion PostgreSQL directe. Appliquez `supabase/migrations/20260909000000_initial_schema.sql` dans le SQL Editor Supabase avant le premier démarrage. Cette migration crée les tables, contraintes d'unicité et politiques RLS nécessaires.
+
+Configurez ces variables dans l'environnement **serveur uniquement** (jamais avec le préfixe `VITE_`) :
+
+```bash
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+AUTH_SECRET=replace_with_a_long_random_secret
+GEMINI_API_KEY=your_key_here
+APP_URL=http://localhost:3000
+```
+
+La clé `service_role` contourne RLS pour les opérations Express. Les politiques de la migration gardent les tables fermées aux clients navigateur ; ne l'exposez jamais dans le bundle Vite.
+
 ## 🚀 Démarrage & Utilisation Rapide
 
 ### 1. Installation des dépendances
@@ -121,7 +137,7 @@ npm run dev
 \`\`\`
 L'application démarre immédiatement sur \`http://localhost:3000\`.
 
-Le serveur provisionne les tables nécessaires au premier démarrage. Les anciennes valeurs de PIN en clair sont hachées automatiquement et ne sont jamais renvoyées par l'API.
+Le serveur vérifie l'accès au schéma Supabase au démarrage. Les anciennes valeurs de PIN en clair sont hachées automatiquement et ne sont jamais renvoyées par l'API.
 
 ### 3. Compilation pour la production
 \`\`\`bash

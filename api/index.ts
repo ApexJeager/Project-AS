@@ -1,11 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { startServer } from '../server';
 
-let appPromise: ReturnType<typeof startServer> | undefined;
+type ExpressApp = (req: VercelRequest, res: VercelResponse) => void;
+let appPromise: Promise<ExpressApp> | undefined;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    appPromise ??= startServer();
+    appPromise ??= import('../server').then(({ startServer }) => startServer());
     const app = await appPromise;
     app(req, res);
   } catch (error) {

@@ -489,10 +489,8 @@ export async function startServer() {
   return app;
 }
 
-export const appPromise = startServer();
-
 if (!process.env.VERCEL) {
-  appPromise.catch(error => {
+  startServer().catch(error => {
     console.error('Unable to start server:', error);
     process.exitCode = 1;
   });

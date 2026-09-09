@@ -71,6 +71,7 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
   const [reports, setReports] = useState<MonthlyReport[]>([]);
   const [gradings, setGradings] = useState<DailyGrading[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const authExpirationHandledRef = useRef(false);
   
   const [currentUser, setCurrentUser] = useState<User>(initialDefaultUsers[2]);
   const [activeTab, setActiveTab] = useState<string>("Daily Grading");
@@ -111,6 +112,8 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
 
   useEffect(() => {
     const handleAuthExpired = () => {
+      if (authExpirationHandledRef.current) return;
+      authExpirationHandledRef.current = true;
       setIsLocked(true);
       setLockReason('Votre session a expiré. Veuillez vous reconnecter.');
       addToast('warning', 'Session expirée', 'Reconnectez-vous pour continuer.');
@@ -245,6 +248,7 @@ export function AppProvider({ children: reactChildren }: { children: ReactNode }
       setIsLocked(false);
       setTargetLockUserId(null);
       setLockReason(null);
+      authExpirationHandledRef.current = false;
       
       if (authenticatedUser.role === 'Dev') {
         if (!['Users', 'PINs', 'Logs', 'Leaderboard'].includes(activeTab)) {

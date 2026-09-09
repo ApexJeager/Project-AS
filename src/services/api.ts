@@ -1,6 +1,7 @@
 import { User, Child, DailyGrading, Attendance, MonthlyReport } from '../types';
 
 const TOKEN_KEY = 'astronautes_session_token';
+let authExpirationHandled = false;
 
 function getToken(): string | null {
   try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
@@ -22,8 +23,11 @@ async function request<T>(url: string, options: RequestInit = {}, authenticated 
   }
   const res = await fetch(url, { ...options, headers });
   if (res.status === 401 && authenticated) {
-    setToken(null);
-    window.dispatchEvent(new CustomEvent('astronautes:auth-expired'));
+    if (!authExpirationHandled) {
+      authExpirationHandled = true;
+      setToken(null);
+      window.dispatchEvent(new CustomEvent('astronautes:auth-expired'));
+    }
   }
   if (!res.ok) {
     let message = 'La requête a échoué.';
@@ -47,6 +51,7 @@ export const api = {
       body: JSON.stringify({ user_id: userId, pin }),
     }, false);
     setToken(result.token);
+    authExpirationHandled = false;
     return result.user;
   },
 
